@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { COSMIC_COLORS, createCosmicEmbed } = require("../utils/cosmic");
 
 module.exports = {
     deploy: true,
@@ -7,13 +6,11 @@ module.exports = {
         .setName("ping")
         .setDescription("Mesure la latence du flux."),
     async execute(interaction) {
-        const latency = interaction.client.ws.ping;
-        const embed = createCosmicEmbed({
-            title: interaction.client.i18n.t(interaction, "ping.title"),
-            description: interaction.client.i18n.t(interaction, "ping.description", { latency }),
-            accent: COSMIC_COLORS.STARLIGHT,
-        });
+        const latency = Math.max(0, Math.round(interaction.client.ws.ping ?? 0));
+        const content = interaction.client.i18n?.t
+            ? interaction.client.i18n.t(interaction, "ping.description", { latency })
+            : `Latence : ${latency} ms.`;
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ content });
     },
 };

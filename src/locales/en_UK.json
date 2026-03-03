@@ -5,7 +5,7 @@
     },
     "ping": {
         "title": "pulse perceived.",
-        "description": "the signal traversed the void in {latency} ms.\nno instability detected."
+        "description": "the signal traversed the void in {latency} ms."
     },
     "lang": {
         "title": "flux realignment.",

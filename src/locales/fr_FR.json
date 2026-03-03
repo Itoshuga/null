@@ -5,7 +5,7 @@
     },
     "ping": {
         "title": "impulsion percue.",
-        "description": "le signal a traverse le vide en {latency} ms.\naucune instabilite detectee."
+        "description": "le signal a traversé le vide en {latency} ms."
     },
     "lang": {
         "title": "realignement du flux.",

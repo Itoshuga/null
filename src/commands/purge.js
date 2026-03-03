@@ -4,7 +4,6 @@ const {
     PermissionFlagsBits,
     SlashCommandBuilder,
 } = require("discord.js");
-const { COSMIC_COLORS, createCosmicEmbed } = require("../utils/cosmic");
 
 module.exports = {
     deploy: true,
@@ -33,25 +32,15 @@ module.exports = {
         ];
 
         if (!channel || !allowedTypes.includes(channel.type) || typeof channel.bulkDelete !== "function") {
-            const embed = createCosmicEmbed({
-                title: interaction.client.i18n.t(interaction, "purge.title"),
-                description: interaction.client.i18n.t(interaction, "purge.unavailable"),
-                accent: COSMIC_COLORS.MIST,
-            });
-
-            await interaction.editReply({ embeds: [embed] });
+            const content = interaction.client.i18n.t(interaction, "purge.unavailable");
+            await interaction.editReply({ content });
             return;
         }
 
         const amount = interaction.options.getInteger("amount", true);
         const deletedMessages = await channel.bulkDelete(amount, true);
         const key = deletedMessages.size > 0 ? "purge.description" : "purge.empty";
-        const embed = createCosmicEmbed({
-            title: interaction.client.i18n.t(interaction, "purge.title"),
-            description: interaction.client.i18n.t(interaction, key, { count: deletedMessages.size }),
-            accent: COSMIC_COLORS.STARLIGHT,
-        });
-
-        await interaction.editReply({ embeds: [embed] });
+        const content = interaction.client.i18n.t(interaction, key, { count: deletedMessages.size });
+        await interaction.editReply({ content });
     },
 };
