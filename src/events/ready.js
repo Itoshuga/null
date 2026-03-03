@@ -1,7 +1,7 @@
 const { deployCommands } = require("../utils/deploy");
 
 module.exports = {
-    name: "ready",
+    name: "clientReady",
     once: true,
     async execute(client) {
         console.log(`🤖 Connecté en tant que ${client.user.tag}`);

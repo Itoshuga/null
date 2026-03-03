@@ -1,0 +1,16 @@
+{
+    "errors": {
+        "permissionDenied": "accès refusé. alignement requis non atteint.",
+        "unexpected": "une distorsion a traversé le champ. origine indéterminée."
+    },
+    "ping": {
+        "title": "impulsion perçue.",
+        "description": "le signal a traversé le vide en {latency} ms.\naucune instabilité détectée."
+    },
+    "lang": {
+        "title": "réalignement du flux.",
+        "changed": "la fréquence d’expression a été modifiée.",
+        "fr_FR": "le flux résonne désormais en français.",
+        "en_UK": "le flux résonne désormais en anglais."
+    }
+}

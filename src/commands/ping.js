@@ -1,10 +1,19 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { COSMIC_COLORS, createCosmicEmbed } = require("../utils/cosmic");
 
 module.exports = {
+    deploy: true,
     data: new SlashCommandBuilder()
         .setName("ping")
-        .setDescription("Répond Pong !"),
+        .setDescription("Mesure la latence du flux."),
     async execute(interaction) {
-        await interaction.reply(`🏓 Pong ! Latence: ${interaction.client.ws.ping}ms`);
+        const latency = interaction.client.ws.ping;
+        const embed = createCosmicEmbed({
+            title: interaction.client.i18n.t(interaction, "ping.title"),
+            description: interaction.client.i18n.t(interaction, "ping.description", { latency }),
+            accent: COSMIC_COLORS.STARLIGHT,
+        });
+
+        await interaction.reply({ embeds: [embed] });
     },
 };

@@ -1,0 +1,16 @@
+{
+    "errors": {
+        "permissionDenied": "access denied. required alignment not achieved.",
+        "unexpected": "a distortion crossed the field. origin remains unknown."
+    },
+    "ping": {
+        "title": "pulse perceived.",
+        "description": "the signal traversed the void in {latency} ms.\nno instability detected."
+    },
+    "lang": {
+        "title": "flux realignment.",
+        "changed": "expression frequency has shifted.",
+        "fr_FR": "the flux now resonates in french.",
+        "en_UK": "the flux now resonates in english."
+    }
+}

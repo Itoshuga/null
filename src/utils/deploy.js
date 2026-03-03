@@ -10,7 +10,9 @@ async function deployCommands(client) {
         throw new Error("TOKEN et CLIENT_ID sont requis dans le .env");
     }
 
-    const commands = [...client.slashCommands.values()].map((cmd) => cmd.data.toJSON());
+    const commands = [...client.slashCommands.values()]
+        .filter((cmd) => cmd.deploy !== false)
+        .map((cmd) => cmd.data.toJSON());
     const rest = new REST({ version: "10" }).setToken(token);
 
     console.log(`⏳ Déploiement des SlashCommands (${scope})...`);
