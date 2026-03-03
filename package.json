@@ -1,24 +1,26 @@
 {
-  "name": "null",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Itoshuga/null.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Itoshuga/null/issues"
-  },
-  "homepage": "https://github.com/Itoshuga/null#readme",
-  "dependencies": {
-    "discord.js": "^14.25.1",
-    "dotenv": "^17.3.1"
-  }
+    "name": "null",
+    "version": "1.0.0",
+    "description": "A discord bot.",
+    "main": "src/index.js",
+    "type": "commonjs",
+    "private": true,
+    "scripts": {
+        "start": "node src/index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Itoshuga/null.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/Itoshuga/null/issues"
+    },
+    "homepage": "https://github.com/Itoshuga/null#readme",
+    "dependencies": {
+        "discord.js": "^14.25.1",
+        "dotenv": "^17.3.1"
+    }
 }
