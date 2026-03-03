@@ -1,16 +1,22 @@
 {
     "errors": {
-        "permissionDenied": "accès refusé. alignement requis non atteint.",
-        "unexpected": "une distorsion a traversé le champ. origine indéterminée."
+        "permissionDenied": "acces refuse. alignement requis non atteint.",
+        "unexpected": "une distorsion a traverse le champ. origine indeterminee."
     },
     "ping": {
-        "title": "impulsion perçue.",
-        "description": "le signal a traversé le vide en {latency} ms.\naucune instabilité détectée."
+        "title": "impulsion percue.",
+        "description": "le signal a traverse le vide en {latency} ms.\naucune instabilite detectee."
     },
     "lang": {
-        "title": "réalignement du flux.",
-        "changed": "la fréquence d’expression a été modifiée.",
-        "fr_FR": "le flux résonne désormais en français.",
-        "en_UK": "le flux résonne désormais en anglais."
+        "title": "realignement du flux.",
+        "changed": "la frequence d'expression a ete modifiee.",
+        "fr_FR": "le flux resonne desormais en francais.",
+        "en_UK": "le flux resonne desormais en anglais."
+    },
+    "purge": {
+        "title": "traces dissipees.",
+        "description": "{count} impulsions ont quitte le champ.",
+        "empty": "aucune impulsion recente n'a pu etre dissipee.",
+        "unavailable": "ce canal refuse la dissipation."
     }
 }

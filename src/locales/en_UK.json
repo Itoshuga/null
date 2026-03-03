@@ -12,5 +12,11 @@
         "changed": "expression frequency has shifted.",
         "fr_FR": "the flux now resonates in french.",
         "en_UK": "the flux now resonates in english."
+    },
+    "purge": {
+        "title": "traces dispersed.",
+        "description": "{count} pulses left the field.",
+        "empty": "no recent pulse could be dispersed.",
+        "unavailable": "this channel rejects the purge."
     }
 }
