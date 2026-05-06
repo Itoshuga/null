@@ -59,6 +59,56 @@ L'option `commande` propose une autocomplétion avec les commandes chargées par
 
 Dans ce cas, le bot affiche directement la description, la catégorie, l'utilisation, le statut et les options de la commande demandée.
 
+## Commande de statistiques RP
+
+La commande `/stats` gère les statistiques roleplay propres à chaque serveur Discord.
+
+Les données sont stockées dans Firestore ici :
+
+```text
+/guilds/{GUILD_ID}/statistics/{STAT_ID}
+```
+
+Sous-commandes disponibles :
+
+- `/stats create` : crée une statistique roleplay.
+- `/stats edit` : modifie une statistique existante.
+- `/stats delete` : supprime doucement une statistique existante.
+- `/stats list` : liste les statistiques du serveur.
+- `/stats view` : affiche le détail d'une statistique.
+
+Les sous-commandes `create`, `edit` et `delete` demandent la permission `Gérer le serveur`.
+
+`/stats create` et `/stats edit` gèrent les options `name`, `description`, `default_value`, `min_value`, `max_value`, `order`, `category`, `emoji` et `is_active`.
+
+Les options `statistic` de `edit`, `delete` et `view` proposent une autocomplétion depuis Firestore. Les statistiques supprimées sont ignorées. Le nom lisible est affiché à l'utilisateur, mais l'identifiant de la statistique est envoyé au bot.
+
+La suppression est une suppression douce : le document reste dans Firestore avec `isDeleted: true`, afin de ne pas casser plus tard les fiches de personnages qui utiliseraient encore cette statistique.
+
+Chaque document de statistique contient :
+
+```js
+{
+  id: "force",
+  name: "Force",
+  description: "Représente la puissance physique du personnage.",
+  defaultValue: 10,
+  minValue: 0,
+  maxValue: 100,
+  category: "Physique",
+  emoji: "💪",
+  order: 1,
+  isActive: true,
+  isDeleted: false,
+  createdBy: "id_utilisateur",
+  updatedBy: "id_utilisateur",
+  deletedBy: null,
+  createdAt: "2026-05-06T10:00:00.000Z",
+  updatedAt: "2026-05-06T10:00:00.000Z",
+  deletedAt: null
+}
+```
+
 ## Logs console
 
 Le logger centralisé se trouve dans `src/utils/logger.js`.
@@ -80,6 +130,8 @@ src/
   commands/
     fun/
     moderation/
+    roleplay/
+      stats.js
     utilitaires/
       help.js
       ping.js
@@ -95,6 +147,7 @@ src/
     deployHandler.js
   services/
     firebase.js
+    statisticsService.js
   config/
     botConfig.js
   utils/

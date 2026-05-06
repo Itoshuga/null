@@ -8,12 +8,25 @@ async function replyPrivately(interaction, message) {
     flags: MessageFlags.Ephemeral,
   };
 
-  if (interaction.replied || interaction.deferred) {
-    await interaction.followUp(response);
-    return;
-  }
+  try {
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(response);
+      return;
+    }
 
-  await interaction.reply(response);
+    await interaction.reply(response);
+  } catch (error) {
+    if (error.code === 40060) {
+      try {
+        await interaction.followUp(response);
+      } catch (followUpError) {
+        logger.error("INTERACTIONS", "Impossible d'envoyer une réponse de secours.", followUpError);
+      }
+      return;
+    }
+
+    logger.error("INTERACTIONS", "Impossible d'envoyer une réponse privée.", error);
+  }
 }
 
 async function handleSelectMenuInteraction(interaction, client) {
