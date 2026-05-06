@@ -45,6 +45,7 @@ const sourceColors = {
   DEPLOIEMENT: colors.yellow,
   FIREBASE: colors.green,
   GUILD: colors.magenta,
+  INTERACTIONS: colors.cyan,
 };
 
 function shouldUseColors() {
