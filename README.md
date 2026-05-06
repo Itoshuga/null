@@ -181,6 +181,45 @@ Le bot doit avoir les permissions `Voir le salon`, `Envoyer des messages`, `Gér
 
 Le proxy RP utilise aussi l'intent `MessageContent`, qui doit être activé dans le portail développeur Discord du bot.
 
+## Commande de jets RP
+
+La commande `/roll` permet de lancer des jets de dés roleplay.
+
+Sous-commandes disponibles :
+
+- `/roll dice` : lance un jet de dés simple, par exemple `1d20`, `2d6` ou `1d100`.
+- `/roll stat` : lance un jet influencé par une statistique active d'un personnage, avec un dé au choix comme `1d20`, `1d60`, `2d12` ou `1d100`.
+- `/roll custom` : lance un jet libre avec un modificateur manuel.
+
+`/roll stat` utilise uniquement les personnages actifs de l'utilisateur et les statistiques actives du serveur. Les options `character` et `statistic` proposent une autocomplétion. L'option `dice` est facultative et vaut `1d100` par défaut.
+
+Le calcul de `/roll stat` fonctionne ainsi :
+
+```text
+maîtrise = valeur_du_personnage / valeur_maximum_de_la_statistique
+résultat final = jet brut + modificateur de maîtrise adapté au dé choisi
+```
+
+Paliers de maîtrise :
+
+- 0 % à 32 % : faible maîtrise, modificateur de base `-15`.
+- 33 % à 66 % : maîtrise normale, modificateur de base `0`.
+- 67 % à 100 % : bonne maîtrise, modificateur de base `+10`.
+
+Les modificateurs et les seuils de difficulté sont adaptés à l'échelle du dé. Par exemple, sur `1d20`, une difficulté `normal` devient un seuil de `10`, car elle représente 50 % du maximum du jet.
+
+Difficultés disponibles :
+
+- `easy` : seuil 40.
+- `normal` : seuil 50.
+- `hard` : seuil 65.
+- `very_hard` : seuil 80.
+
+Les jets critiques sont calculés sur le jet brut :
+
+- 1 à 5 : échec critique.
+- 96 à 100 : réussite critique.
+
 ## Logs console
 
 Le logger centralisé se trouve dans `src/utils/logger.js`.
@@ -203,6 +242,8 @@ src/
     fun/
     moderation/
     roleplay/
+      character.js
+      roll.js
       stats.js
     utilitaires/
       help.js
@@ -218,8 +259,10 @@ src/
     eventHandler.js
     deployHandler.js
   services/
+    characterService.js
     firebase.js
     statisticsService.js
+    webhookService.js
   config/
     botConfig.js
   utils/
