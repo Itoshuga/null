@@ -1,0 +1,17 @@
+{
+  "name": "mon-bot-discord",
+  "version": "1.0.0",
+  "description": "Base propre et maintenable pour un bot Discord francophone avec discord.js et Firebase Firestore.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
+    "firebase-admin": "^13.8.0"
+  }
+}
