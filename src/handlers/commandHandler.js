@@ -33,9 +33,29 @@ function isCommandValid(command, filePath) {
         if (typeof commandData.description !== "string" || commandData.description.length === 0) {
           errors.push("data.description doit être une chaîne non vide");
         }
+
+        if (typeof command.name === "string" && command.name !== commandData.name) {
+          errors.push("name doit correspondre au nom défini dans data");
+        }
       } catch (error) {
         errors.push(`data.toJSON() a échoué : ${error.message}`);
       }
+    }
+
+    if (typeof command.name !== "string" || command.name.length === 0) {
+      errors.push("name doit être une chaîne non vide");
+    }
+
+    if (typeof command.description !== "string" || command.description.length === 0) {
+      errors.push("description doit être une chaîne non vide");
+    }
+
+    if (typeof command.category !== "string" || command.category.length === 0) {
+      errors.push("category doit être une chaîne non vide");
+    }
+
+    if (typeof command.usage !== "string" || command.usage.length === 0) {
+      errors.push("usage doit être une chaîne non vide");
     }
 
     if (typeof command.isEnabled !== "boolean") {
@@ -100,7 +120,7 @@ function loadCommands(client) {
   const commands = readCommandsFromFolders();
 
   for (const command of commands) {
-    const commandName = command.data.toJSON().name;
+    const commandName = command.name;
 
     if (client.commands.has(commandName)) {
       logger.warning("COMMANDES", `La commande /${commandName} est déjà chargée, doublon ignoré.`);

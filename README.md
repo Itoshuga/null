@@ -45,6 +45,20 @@ npm run start
 
 Au démarrage, le bot parcourt automatiquement `src/commands`, ignore les commandes avec `isDeployed: false`, synchronise les Slash Commands autorisées avec Discord, puis se connecte.
 
+## Commande d'aide
+
+La commande `/help` affiche un centre d'aide général avec un menu déroulant par catégorie.
+
+Elle accepte aussi une option facultative :
+
+```text
+/help commande:ping
+```
+
+L'option `commande` propose une autocomplétion avec les commandes chargées par le bot.
+
+Dans ce cas, le bot affiche directement la description, la catégorie, l'utilisation, le statut et les options de la commande demandée.
+
 ## Logs console
 
 Le logger centralisé se trouve dans `src/utils/logger.js`.
@@ -67,6 +81,7 @@ src/
     fun/
     moderation/
     utilitaires/
+      help.js
       ping.js
   events/
     client/
@@ -100,6 +115,11 @@ module.exports = {
     .setName("exemple")
     .setDescription("Commande d'exemple."),
 
+  name: "exemple",
+  description: "Commande d'exemple.",
+  category: "Utilitaires",
+  usage: "/exemple",
+
   isEnabled: true,
   isDeployed: true,
 
@@ -108,6 +128,8 @@ module.exports = {
   },
 };
 ```
+
+Chaque commande doit fournir au minimum `data`, `name`, `description`, `category`, `usage`, `isEnabled`, `isDeployed` et `execute`.
 
 `isEnabled: false` garde la commande chargée, mais répond aux utilisateurs qu'elle est en maintenance.
 
@@ -128,6 +150,11 @@ module.exports = {
         .setDescription("Message à répéter.")
         .setRequired(true),
     ),
+
+  name: "dire",
+  description: "Répète un message.",
+  category: "Utilitaires",
+  usage: "/dire message:texte",
 
   isEnabled: true,
   isDeployed: true,

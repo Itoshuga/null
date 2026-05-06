@@ -16,15 +16,72 @@ async function replyPrivately(interaction, message) {
   await interaction.reply(response);
 }
 
+async function handleSelectMenuInteraction(interaction, client) {
+  const command = [...client.commands.values()].find((loadedCommand) => {
+    return (
+      typeof loadedCommand.componentPrefix === "string" &&
+      typeof loadedCommand.handleSelectMenu === "function" &&
+      interaction.customId.startsWith(loadedCommand.componentPrefix)
+    );
+  });
+
+  if (!command) {
+    logger.warning("INTERACTIONS", `Menu ${interaction.customId} reçu mais aucun handler n'est disponible.`);
+    await replyPrivately(interaction, "Ce menu n'est plus disponible pour le moment.");
+    return;
+  }
+
+  if (!command.isEnabled) {
+    await replyPrivately(interaction, "Cette fonctionnalité est actuellement en maintenance.");
+    return;
+  }
+
+  try {
+    await command.handleSelectMenu(interaction, client);
+  } catch (error) {
+    logger.error("INTERACTIONS", `Erreur lors du traitement du menu ${interaction.customId}.`, error);
+    await replyPrivately(interaction, "Une erreur est survenue lors du traitement de ce menu.");
+  }
+}
+
+async function handleAutocompleteInteraction(interaction, client) {
+  const command = client.commands.get(interaction.commandName);
+
+  if (!command || !command.isEnabled || typeof command.autocomplete !== "function") {
+    await interaction.respond([]);
+    return;
+  }
+
+  try {
+    await command.autocomplete(interaction, client);
+  } catch (error) {
+    logger.error("INTERACTIONS", `Erreur lors de l'autocomplétion de /${interaction.commandName}.`, error);
+
+    if (!interaction.responded) {
+      await interaction.respond([]);
+    }
+  }
+}
+
 module.exports = {
   name: Events.InteractionCreate,
   once: false,
 
   /**
    * Evénement déclenché à chaque interaction Discord.
-   * Ici, on ne traite que les Slash Commands.
+   * On traite les Slash Commands et les composants interactifs gérés par les commandes.
    */
   async execute(interaction, client) {
+    if (interaction.isAutocomplete()) {
+      await handleAutocompleteInteraction(interaction, client);
+      return;
+    }
+
+    if (interaction.isStringSelectMenu()) {
+      await handleSelectMenuInteraction(interaction, client);
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) {
       return;
     }
