@@ -8,7 +8,14 @@ const {
 } = require("discord.js");
 
 const HELP_CATEGORY_MENU_PREFIX = "help:category";
-const HELP_COLOR = 0x3498db;
+const HELP_EMBED_COLORS = {
+  general: 0xf2f4f8,
+  command: 0xc9ced8,
+  category: 0x2d323c,
+  warning: 0x8d94a0,
+};
+
+const HELP_FOOTER_TEXT = "Centre d'Aide";
 
 module.exports = {
   name: "help",
@@ -168,7 +175,7 @@ function createGeneralHelpEmbed(client) {
   const categoryCount = getCategories(availableCommands).length;
 
   return new EmbedBuilder()
-    .setColor(HELP_COLOR)
+    .setColor(HELP_EMBED_COLORS.general)
     .setTitle("📘 Centre d'aide")
     .setDescription(
       [
@@ -179,12 +186,14 @@ function createGeneralHelpEmbed(client) {
     .addFields({
       name: "Commandes disponibles",
       value: `${availableCommands.length} commande${availableCommands.length > 1 ? "s" : ""} dans ${categoryCount} catégorie${categoryCount > 1 ? "s" : ""}.`,
-    });
+    })
+    .setFooter({ text: HELP_FOOTER_TEXT })
+    .setTimestamp();
 }
 
 function createCommandHelpEmbed(command) {
   return new EmbedBuilder()
-    .setColor(HELP_COLOR)
+    .setColor(HELP_EMBED_COLORS.command)
     .setTitle(`📘 Aide de la commande /${command.name}`)
     .addFields(
       {
@@ -209,7 +218,9 @@ function createCommandHelpEmbed(command) {
         name: "Options",
         value: formatOptions(command),
       },
-    );
+    )
+    .setFooter({ text: HELP_FOOTER_TEXT })
+    .setTimestamp();
 }
 
 function createCategoryHelpEmbed(category, commands) {
@@ -218,16 +229,20 @@ function createCategoryHelpEmbed(category, commands) {
     .join("\n");
 
   return new EmbedBuilder()
-    .setColor(HELP_COLOR)
+    .setColor(HELP_EMBED_COLORS.category)
     .setTitle(`📘 Commandes ${category}`)
-    .setDescription(commandList || "Aucune commande disponible dans cette catégorie.");
+    .setDescription(commandList || "Aucune commande disponible dans cette catégorie.")
+    .setFooter({ text: HELP_FOOTER_TEXT })
+    .setTimestamp();
 }
 
 function createUnknownCommandEmbed(commandName) {
   return new EmbedBuilder()
-    .setColor(0xe67e22)
+    .setColor(HELP_EMBED_COLORS.warning)
     .setTitle("Commande introuvable")
-    .setDescription(`La commande \`/${commandName}\` n'existe pas ou n'est pas chargée par le bot.`);
+    .setDescription(`La commande \`/${commandName}\` n'existe pas ou n'est pas chargée par le bot.`)
+    .setFooter({ text: HELP_FOOTER_TEXT })
+    .setTimestamp();
 }
 
 function createCategorySelectMenu(client, userId) {
