@@ -57,6 +57,34 @@ async function handleSelectMenuInteraction(interaction, client) {
   }
 }
 
+async function handleButtonInteraction(interaction, client) {
+  const command = [...client.commands.values()].find((loadedCommand) => {
+    return (
+      typeof loadedCommand.componentPrefix === "string" &&
+      typeof loadedCommand.handleButton === "function" &&
+      interaction.customId.startsWith(loadedCommand.componentPrefix)
+    );
+  });
+
+  if (!command) {
+    logger.warning("INTERACTIONS", `Bouton ${interaction.customId} reçu mais aucun handler n'est disponible.`);
+    await replyPrivately(interaction, "Ce bouton n'est plus disponible pour le moment.");
+    return;
+  }
+
+  if (!command.isEnabled) {
+    await replyPrivately(interaction, "Cette fonctionnalité est actuellement en maintenance.");
+    return;
+  }
+
+  try {
+    await command.handleButton(interaction, client);
+  } catch (error) {
+    logger.error("INTERACTIONS", `Erreur lors du traitement du bouton ${interaction.customId}.`, error);
+    await replyPrivately(interaction, "Une erreur est survenue lors du traitement de ce bouton.");
+  }
+}
+
 async function handleAutocompleteInteraction(interaction, client) {
   const command = client.commands.get(interaction.commandName);
 
@@ -92,6 +120,11 @@ module.exports = {
 
     if (interaction.isStringSelectMenu()) {
       await handleSelectMenuInteraction(interaction, client);
+      return;
+    }
+
+    if (interaction.isButton()) {
+      await handleButtonInteraction(interaction, client);
       return;
     }
 

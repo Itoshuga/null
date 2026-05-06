@@ -207,6 +207,10 @@ function getStatisticsService() {
   return require("../../services/statisticsService");
 }
 
+function getEconomyService() {
+  return require("../../services/economyService");
+}
+
 function canManageServer(interaction) {
   return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
 }
@@ -375,6 +379,7 @@ async function handleCreate(interaction) {
 
   const characterId = await createAvailableCharacterId(interaction.guildId, values.name);
   const activeStatistics = await getActiveStatistics(interaction.guildId);
+  const economySettings = await getEconomyService().getEconomySettings(interaction.guildId);
   const now = new Date().toISOString();
   const characterData = {
     id: characterId,
@@ -385,6 +390,7 @@ async function handleCreate(interaction) {
     proxy: values.proxy,
     statistics: createCharacterStatistics(activeStatistics),
     statisticsVersion: DEFAULT_STATISTICS_VERSION,
+    economy: getEconomyService().createInitialEconomy(economySettings),
     isActive: true,
     isDeleted: false,
     createdBy: interaction.user.id,
@@ -613,6 +619,7 @@ function createCharacterListField(character) {
 }
 
 function createCharacterViewEmbed(character, activeStatistics) {
+  const economy = getEconomyService().normalizeEconomy(character.economy);
   const statisticsLines = activeStatistics.map((statistic) => {
     const value = character.statistics?.[statistic.id] ?? statistic.defaultValue;
     const emoji = statistic.emoji ? `${statistic.emoji} ` : "";
@@ -626,9 +633,13 @@ function createCharacterViewEmbed(character, activeStatistics) {
     `**ID** | *\`${character.id}\`*`,
     `**Proxy** | \`${character.proxy}\``,
     `**Statut** | **\`${formatCharacterStatus(character)}\`**`,
-      `**Propriétaire** | <@${character.ownerId}>`,
+    `**Propriétaire** | <@${character.ownerId}>`,
     "### \\🧬 **Statistiques**",
     statisticsLines.length > 0 ? statisticsLines.join("\n") : "Aucune statistique active n'est configurée sur ce serveur.",
+    "### \\💰 **Économie**",
+    `**Sur soi** | **\`${formatCurrency(economy.wallet)}\`**`,
+    `**Banque** | **\`${formatCurrency(economy.bank)}\`**`,
+    `**Total** | **\`${formatCurrency(economy.wallet + economy.bank)}\`**`,
   ].join("\n");
 
   return new EmbedBuilder()
@@ -652,6 +663,10 @@ function formatCharacterStatus(character) {
 
 function formatCount(count, singular, plural = `${singular}s`) {
   return `${count} ${count > 1 ? plural : singular}`;
+}
+
+function formatCurrency(amount) {
+  return `${new Intl.NumberFormat("fr-FR").format(amount)} ¥`;
 }
 
 function normalizeSearchText(value) {

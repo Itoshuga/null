@@ -181,6 +181,59 @@ Le bot doit avoir les permissions `Voir le salon`, `Envoyer des messages`, `Gér
 
 Le proxy RP utilise aussi l'intent `MessageContent`, qui doit être activé dans le portail développeur Discord du bot.
 
+## Commande d'économie RP
+
+La commande `/economy` gère l'argent des personnages roleplay. L'économie est liée aux personnages, pas directement aux utilisateurs Discord.
+
+Sous-commandes disponibles :
+
+- `/economy work` : fait travailler un personnage et ajoute une récompense à son argent sur soi.
+- `/economy balance` : affiche l'argent sur soi, en banque et total d'un personnage.
+- `/economy deposit` : dépose de l'argent en banque.
+- `/economy withdraw` : retire de l'argent de la banque.
+- `/economy payment` : transfère de l'argent entre deux personnages.
+- `/economy transactions` : affiche les transactions récentes d'un personnage.
+
+Chaque personnage stocke ses données économiques dans son document Firestore :
+
+```js
+{
+  economy: {
+    wallet: 3250,
+    bank: 12000,
+    lastWorkAt: "2026-05-06T10:00:00.000Z"
+  }
+}
+```
+
+Les transactions économiques sont stockées ici :
+
+```text
+/guilds/{GUILD_ID}/transactions/{TRANSACTION_ID}
+```
+
+Les mouvements d'argent `work`, `deposit`, `withdraw` et `payment` utilisent des transactions Firestore afin d'éviter les soldes négatifs et les doublons.
+
+La configuration économie peut être stockée ici :
+
+```text
+/guilds/{GUILD_ID}/settings/economy
+```
+
+Valeurs par défaut :
+
+```js
+{
+  currencySymbol: "¥",
+  workCooldownHours: 6,
+  workMinReward: 1000,
+  workMaxReward: 2000,
+  startingWallet: 0,
+  startingBank: 0,
+  allowSelfCharacterPayments: true
+}
+```
+
 ## Commande de jets RP
 
 La commande `/roll` permet de lancer des jets de dés roleplay.
@@ -243,6 +296,7 @@ src/
     moderation/
     roleplay/
       character.js
+      economy.js
       roll.js
       stats.js
     utilitaires/
@@ -260,6 +314,7 @@ src/
     deployHandler.js
   services/
     characterService.js
+    economyService.js
     firebase.js
     statisticsService.js
     webhookService.js

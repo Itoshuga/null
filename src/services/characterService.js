@@ -57,6 +57,18 @@ async function listCharactersByOwner(guildId, ownerId, options = {}) {
     });
 }
 
+async function listCharacters(guildId, options = {}) {
+  const snapshot = await getCharactersCollection(guildId).get();
+
+  return snapshot.docs
+    .map((document) => document.data())
+    .filter((character) => options.includeDeleted || !character.isDeleted)
+    .filter((character) => options.includeInactive || character.isActive !== false)
+    .sort((firstCharacter, secondCharacter) => {
+      return firstCharacter.name.localeCompare(secondCharacter.name, "fr");
+    });
+}
+
 async function countActiveCharactersByOwner(guildId, ownerId) {
   const characters = await listCharactersByOwner(guildId, ownerId);
 
@@ -144,6 +156,7 @@ module.exports = {
   findCharacterByProxy,
   getCharacter,
   isProxyAvailable,
+  listCharacters,
   listCharactersByOwner,
   normalizeProxy,
   softDeleteCharacter,
