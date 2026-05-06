@@ -263,6 +263,10 @@ function getStatisticsService() {
   return require("../../services/statisticsService");
 }
 
+function getCharacterService() {
+  return require("../../services/characterService");
+}
+
 function canManageServer(interaction) {
   return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
 }
@@ -431,6 +435,7 @@ async function handleCreate(interaction) {
   };
 
   await statisticsService.createStatistic(interaction.guildId, statisticData);
+  await getCharacterService().addStatisticToActiveCharacters(interaction.guildId, statisticData.id, statisticData.defaultValue);
 
   await sendStatsResponse(interaction, {
     embeds: [createSimpleStatsEmbed(createSuccessDescription("✅", "Statistique créée", statisticData, "créée"))],

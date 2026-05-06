@@ -46,6 +46,7 @@ const sourceColors = {
   FIREBASE: colors.green,
   GUILD: colors.magenta,
   INTERACTIONS: colors.cyan,
+  PROXY: colors.magenta,
 };
 
 function shouldUseColors() {

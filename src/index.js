@@ -21,6 +21,9 @@ async function startBot() {
       intents: [
         // Cet intent suffit pour recevoir les interactions Slash Commands.
         GatewayIntentBits.Guilds,
+        // Ces intents permettent au proxy RP de lire les messages de serveur.
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
       ],
     });
 
