@@ -5,6 +5,7 @@ const logger = require("../utils/logger");
 const { getJavaScriptFiles } = require("../utils/fileLoader");
 
 const commandsDirectory = path.join(__dirname, "..", "commands");
+const modulesDirectory = path.join(__dirname, "..", "modules");
 
 function getReadablePath(fullPath) {
   return path.relative(process.cwd(), fullPath).replace(/\\/g, "/");
@@ -101,6 +102,7 @@ function readCommandsFromFolders() {
       commands.push({
         ...command,
         category: command.category || path.basename(path.dirname(filePath)),
+        filePath,
       });
     } catch (error) {
       logger.error("COMMANDES", `Erreur lors du chargement de ${getReadablePath(filePath)}.`, error);
@@ -108,6 +110,65 @@ function readCommandsFromFolders() {
   }
 
   return commands;
+}
+
+function clearRequireCache(filePath) {
+  const resolvedPath = require.resolve(filePath);
+
+  delete require.cache[resolvedPath];
+}
+
+function clearModuleCache() {
+  for (const filePath of getJavaScriptFiles(modulesDirectory)) {
+    try {
+      const resolvedPath = require.resolve(filePath);
+
+      if (require.cache[resolvedPath]) {
+        delete require.cache[resolvedPath];
+      }
+    } catch {
+      // Si un fichier n'est pas dans le cache, rien n'est Ã  nettoyer.
+    }
+  }
+}
+
+function loadCommandFromFile(filePath) {
+  clearModuleCache();
+  clearRequireCache(filePath);
+
+  const command = require(filePath);
+
+  if (!isCommandValid(command, filePath)) {
+    throw new Error("Le fichier de commande ne respecte pas le contrat attendu.");
+  }
+
+  return {
+    ...command,
+    category: command.category || path.basename(path.dirname(filePath)),
+    filePath,
+  };
+}
+
+function reloadCommand(client, commandName) {
+  const normalizedCommandName = commandName.trim().replace(/^\//, "").toLowerCase();
+  const currentCommand = client.commands.get(normalizedCommandName);
+
+  if (!currentCommand?.filePath) {
+    throw new Error(`La commande /${normalizedCommandName} est introuvable en mÃ©moire.`);
+  }
+
+  const reloadedCommand = loadCommandFromFile(currentCommand.filePath);
+
+  if (reloadedCommand.name !== normalizedCommandName && client.commands.has(reloadedCommand.name)) {
+    throw new Error(`Impossible de recharger /${normalizedCommandName} : /${reloadedCommand.name} existe dÃ©jÃ .`);
+  }
+
+  client.commands.delete(normalizedCommandName);
+  client.commands.set(reloadedCommand.name, reloadedCommand);
+
+  logger.success("COMMANDES", `Commande /${reloadedCommand.name} rechargÃ©e sans redÃ©marrage.`);
+
+  return reloadedCommand;
 }
 
 /**
@@ -141,4 +202,5 @@ function loadCommands(client) {
 module.exports = {
   loadCommands,
   readCommandsFromFolders,
+  reloadCommand,
 };

@@ -2,6 +2,10 @@ function getDb() {
   return require("./firebase").db;
 }
 
+function getFieldValue() {
+  return require("./firebase").admin.firestore.FieldValue;
+}
+
 /**
  * Retourne la collection Firestore des personnages RP d'un serveur.
  * Chemin final : /guilds/{GUILD_ID}/characters/{CHARACTER_ID}
@@ -108,6 +112,26 @@ async function updateCharacter(guildId, characterId, updatedData) {
   await getCharactersCollection(guildId).doc(characterId).update(updatedData);
 }
 
+async function setCharacterStatistic(guildId, characterId, statisticId, value, userId) {
+  const now = new Date().toISOString();
+
+  await getCharactersCollection(guildId).doc(characterId).update({
+    [`statistics.${statisticId}`]: value,
+    updatedAt: now,
+    updatedBy: userId,
+  });
+}
+
+async function removeCharacterStatistic(guildId, characterId, statisticId, userId) {
+  const now = new Date().toISOString();
+
+  await getCharactersCollection(guildId).doc(characterId).update({
+    [`statistics.${statisticId}`]: getFieldValue().delete(),
+    updatedAt: now,
+    updatedBy: userId,
+  });
+}
+
 async function softDeleteCharacter(guildId, characterId, deletionData) {
   await getCharactersCollection(guildId).doc(characterId).update({
     isActive: false,
@@ -121,7 +145,7 @@ async function softDeleteCharacter(guildId, characterId, deletionData) {
 
 /**
  * Ajoute une nouvelle statistique aux personnages actifs qui ne la possèdent pas encore.
- * Cette synchronisation garde les personnages cohérents après un /stats create.
+ * Cette synchronisation garde les personnages cohérents après un /config stats create.
  */
 async function addStatisticToActiveCharacters(guildId, statisticId, defaultValue) {
   const snapshot = await getCharactersCollection(guildId).get();
@@ -159,6 +183,8 @@ module.exports = {
   listCharacters,
   listCharactersByOwner,
   normalizeProxy,
+  removeCharacterStatistic,
+  setCharacterStatistic,
   softDeleteCharacter,
   updateCharacter,
 };

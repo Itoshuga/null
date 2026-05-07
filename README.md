@@ -31,6 +31,7 @@ DISCORD_TOKEN=token_du_bot
 CLIENT_ID=id_du_client_discord
 GUILD_ID=id_du_serveur_de_test
 DEPLOY_COMMANDS_GLOBAL=false
+DEVELOPER_IDS=id_discord_du_developpeur
 FIREBASE_PROJECT_ID=id_du_projet_firebase
 FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
 ```
@@ -44,6 +45,19 @@ npm run start
 ```
 
 Au démarrage, le bot parcourt automatiquement `src/commands`, ignore les commandes avec `isDeployed: false`, synchronise les Slash Commands autorisées avec Discord, puis se connecte.
+
+## Commande développeur
+
+La commande `/reload` permet de recharger une commande en mémoire sans redémarrer le bot.
+
+Elle est visible dans `/help`, mais son exécution est réservée aux identifiants Discord présents dans `DEVELOPER_IDS`.
+
+```text
+/reload command:stats
+/reload command:stats deploy:true
+```
+
+L'option `deploy:true` relance aussi la synchronisation des Slash Commands Discord, utile si la structure de la commande a changé.
 
 ## Commande d'aide
 
@@ -61,7 +75,7 @@ Dans ce cas, le bot affiche directement la description, la catégorie, l'utilisa
 
 ## Commande de statistiques RP
 
-La commande `/stats` gère les statistiques roleplay propres à chaque serveur Discord.
+La commande `/stats` permet de consulter les statistiques roleplay propres à chaque serveur Discord.
 
 Les données sont stockées dans Firestore ici :
 
@@ -71,19 +85,20 @@ Les données sont stockées dans Firestore ici :
 
 Sous-commandes disponibles :
 
-- `/stats create` : crée une statistique roleplay.
-- `/stats edit` : modifie une statistique existante.
-- `/stats delete` : supprime doucement une statistique existante.
 - `/stats list` : liste les statistiques du serveur.
 - `/stats view` : affiche le détail d'une statistique.
 
-Les sous-commandes `create`, `edit` et `delete` demandent la permission `Gérer le serveur`.
+Les modifications de statistiques sont centralisées dans `/config stats`, qui demande la permission `Gérer le serveur`.
 
-`/stats create` et `/stats edit` gèrent les options `name`, `description`, `default_value`, `min_value`, `max_value`, `order`, `category`, `emoji` et `is_active`.
+`/config stats add` demande `character`, `statistic` et `value`. Si le personnage a `10` dans la statistique et que `value` vaut `5`, il passe à `15`.
 
-Les options `statistic` de `edit`, `delete` et `view` proposent une autocomplétion depuis Firestore. Les statistiques supprimées sont ignorées. Le nom lisible est affiché à l'utilisateur, mais l'identifiant de la statistique est envoyé au bot.
+`/config stats remove` demande aussi `character`, `statistic` et `value`. Si le personnage a `10` et que `value` vaut `5`, il passe à `5`.
 
-La suppression est une suppression douce : le document reste dans Firestore avec `isDeleted: true`, afin de ne pas casser plus tard les fiches de personnages qui utiliseraient encore cette statistique.
+`/config stats edit` gère les options `name`, `description`, `default_value`, `min_value`, `max_value`, `order`, `category`, `emoji` et `is_active`.
+
+Les options `statistic` de `view` et de `/config stats` proposent une autocomplétion depuis Firestore. Les statistiques supprimées sont ignorées. Le nom lisible est affiché à l'utilisateur, mais l'identifiant de la statistique est envoyé au bot.
+
+La création et la suppression douce des statistiques globales du serveur se font aussi via `/config stats create` et `/config stats delete`.
 
 Chaque document de statistique contient :
 
@@ -313,8 +328,11 @@ Configuration des objets :
 
 Configuration des statistiques :
 
-- `/config stats add` : ajoute une statistique et la synchronise aux personnages actifs.
-- `/config stats remove` : supprime doucement une statistique.
+- `/config stats create` : crée une statistique et la synchronise aux personnages actifs.
+- `/config stats edit` : modifie une statistique existante.
+- `/config stats delete` : supprime doucement une statistique.
+- `/config stats add` : ajoute des points à la statistique d'un personnage.
+- `/config stats remove` : retire des points à la statistique d'un personnage.
 
 Configuration de l'argent :
 
@@ -364,6 +382,8 @@ Les jets critiques sont calculés sur le jet brut :
 - 1 à 5 : échec critique.
 - 96 à 100 : réussite critique.
 
+Après un `/roll stat`, le personnage a une chance sur cinq de gagner automatiquement `+1` dans une statistique active aléatoire qu'il possède déjà. La progression ne dépasse jamais la valeur maximale définie pour la statistique.
+
 ## Logs console
 
 Le logger centralisé se trouve dans `src/utils/logger.js`.
@@ -383,6 +403,8 @@ Les couleurs peuvent être désactivées avec `NO_COLOR=1` ou forcées avec `FOR
 ```text
 src/
   commands/
+    developpeur/
+      reload.js
     fun/
     moderation/
     roleplay/
@@ -430,6 +452,15 @@ src/
       handlers.js
       shared.js
       shopView.js
+    roll/
+      autocomplete.js
+      builder.js
+      constants.js
+      dice.js
+      embeds.js
+      handlers.js
+      progression.js
+      shared.js
     stats/
       autocomplete.js
       builder.js

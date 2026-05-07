@@ -140,8 +140,8 @@ function createConfigCommandBuilder() {
         .setDescription("Configure les statistiques RP.")
         .addSubcommand((subcommand) =>
           subcommand
-            .setName("add")
-            .setDescription("Ajoute une statistique.")
+            .setName("create")
+            .setDescription("Crée une statistique.")
             .addStringOption((option) =>
               option
                 .setName("name")
@@ -198,14 +198,101 @@ function createConfigCommandBuilder() {
         )
         .addSubcommand((subcommand) =>
           subcommand
-            .setName("remove")
-            .setDescription("Supprime doucement une statistique.")
+            .setName("edit")
+            .setDescription("Modifie une statistique.")
+            .addStringOption((option) => addStatisticOption(option, "Statistique à modifier."))
             .addStringOption((option) =>
               option
-                .setName("statistic")
-                .setDescription("Statistique à supprimer.")
+                .setName("name")
+                .setDescription("Nouveau nom de la statistique.")
+                .setRequired(false)
+                .setMaxLength(80),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("description")
+                .setDescription("Nouvelle description de la statistique.")
+                .setRequired(false)
+                .setMaxLength(500),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("default_value")
+                .setDescription("Nouvelle valeur par défaut.")
+                .setRequired(false),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("min_value")
+                .setDescription("Nouvelle valeur minimale.")
+                .setRequired(false),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("max_value")
+                .setDescription("Nouvelle valeur maximale.")
+                .setRequired(false),
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("order")
+                .setDescription("Nouvel ordre d'affichage.")
+                .setRequired(false)
+                .setMinValue(0),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("category")
+                .setDescription("Nouvelle catégorie RP.")
+                .setRequired(false)
+                .setMaxLength(80),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("emoji")
+                .setDescription("Nouvel emoji de la statistique.")
+                .setRequired(false)
+                .setMaxLength(32),
+            )
+            .addBooleanOption((option) =>
+              option
+                .setName("is_active")
+                .setDescription("Active ou désactive la statistique.")
+                .setRequired(false),
+            ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("delete")
+            .setDescription("Supprime doucement une statistique.")
+            .addStringOption((option) => addStatisticOption(option, "Statistique à supprimer.")),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("add")
+            .setDescription("Ajoute des points à la statistique d'un personnage.")
+            .addStringOption((option) => addCharacterOption(option, "Personnage concerné."))
+            .addStringOption((option) => addStatisticOption(option, "Statistique à augmenter."))
+            .addIntegerOption((option) =>
+              option
+                .setName("value")
+                .setDescription("Nombre de points à ajouter.")
                 .setRequired(true)
-                .setAutocomplete(true),
+                .setMinValue(1),
+            ),
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("remove")
+            .setDescription("Retire des points à la statistique d'un personnage.")
+            .addStringOption((option) => addCharacterOption(option, "Personnage concerné."))
+            .addStringOption((option) => addStatisticOption(option, "Statistique à diminuer."))
+            .addIntegerOption((option) =>
+              option
+                .setName("value")
+                .setDescription("Nombre de points à retirer.")
+                .setRequired(true)
+                .setMinValue(1),
             ),
         ),
     )
@@ -267,6 +354,14 @@ function addItemOption(option, description) {
 function addCharacterOption(option, description) {
   return option
     .setName("character")
+    .setDescription(description)
+    .setRequired(true)
+    .setAutocomplete(true);
+}
+
+function addStatisticOption(option, description) {
+  return option
+    .setName("statistic")
     .setDescription(description)
     .setRequired(true)
     .setAutocomplete(true);

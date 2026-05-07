@@ -40,12 +40,35 @@ async function getStatistic(guildId, statisticId, options = {}) {
   return statistic;
 }
 
-async function listStatistics(guildId) {
+async function findStatistic(guildId, value, options = {}) {
+  const rawValue = value.trim();
+  const statisticIds = [...new Set([rawValue, createStatisticId(rawValue)].filter(Boolean))];
+
+  for (const statisticId of statisticIds) {
+    const statistic = await getStatistic(guildId, statisticId, options);
+
+    if (statistic) {
+      return statistic;
+    }
+  }
+
+  const normalizedValue = normalizeSearchValue(rawValue);
+  const statistics = await listStatistics(guildId, {
+    includeDeleted: options.includeDeleted,
+  });
+
+  return statistics.find((statistic) => {
+    return normalizeSearchValue(statistic.id) === normalizedValue
+      || normalizeSearchValue(statistic.name) === normalizedValue;
+  }) || null;
+}
+
+async function listStatistics(guildId, options = {}) {
   const snapshot = await getStatisticsCollection(guildId).get();
 
   return snapshot.docs
     .map((document) => document.data())
-    .filter((statistic) => !statistic.isDeleted)
+    .filter((statistic) => options.includeDeleted || !statistic.isDeleted)
     .sort((firstStatistic, secondStatistic) => {
       const firstOrder = firstStatistic.order ?? 0;
       const secondOrder = secondStatistic.order ?? 0;
@@ -56,6 +79,14 @@ async function listStatistics(guildId) {
 
       return firstStatistic.name.localeCompare(secondStatistic.name, "fr");
     });
+}
+
+function normalizeSearchValue(value) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 async function createStatistic(guildId, statisticData) {
@@ -80,6 +111,7 @@ async function softDeleteStatistic(guildId, statisticId, deletionData) {
 module.exports = {
   createStatistic,
   createStatisticId,
+  findStatistic,
   getStatistic,
   listStatistics,
   softDeleteStatistic,

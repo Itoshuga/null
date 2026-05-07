@@ -50,8 +50,15 @@ async function respondWithItemChoices(interaction, value) {
 
 async function respondWithStatisticChoices(interaction, value) {
   const focusedValue = normalizeSearchText(value);
+  const group = getSafeSubcommandGroup(interaction);
+  const subcommand = getSafeSubcommand(interaction);
+  const characterId = interaction.options.getString("character");
+  const character = characterId
+    ? await getCharacterService().getCharacter(interaction.guildId, characterId)
+    : null;
   const statistics = await getStatisticsService().listStatistics(interaction.guildId);
   const choices = statistics
+    .filter((statistic) => shouldShowStatisticChoice(statistic, character, group, subcommand))
     .filter((statistic) => normalizeSearchText(`${statistic.name} ${statistic.id} ${statistic.category || ""}`).includes(focusedValue))
     .slice(0, 25)
     .map((statistic) => ({
@@ -60,6 +67,34 @@ async function respondWithStatisticChoices(interaction, value) {
     }));
 
   await interaction.respond(choices);
+}
+
+function shouldShowStatisticChoice(statistic, character, group, subcommand) {
+  if (group === "stats" && ["add", "remove"].includes(subcommand)) {
+    return statistic.isActive !== false && (!character || hasCharacterStatistic(character, statistic.id));
+  }
+
+  return true;
+}
+
+function hasCharacterStatistic(character, statisticId) {
+  return Object.prototype.hasOwnProperty.call(character.statistics || {}, statisticId);
+}
+
+function getSafeSubcommandGroup(interaction) {
+  try {
+    return interaction.options.getSubcommandGroup(false);
+  } catch {
+    return null;
+  }
+}
+
+function getSafeSubcommand(interaction) {
+  try {
+    return interaction.options.getSubcommand(false);
+  } catch {
+    return null;
+  }
 }
 
 async function respondWithCharacterChoices(interaction, value) {

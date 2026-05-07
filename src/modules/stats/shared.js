@@ -16,7 +16,7 @@ function canManageServer(interaction) {
 }
 
 function shouldUsePrivateResponse(subcommand) {
-  return ["create", "edit", "delete"].includes(subcommand);
+  return false;
 }
 
 async function deferStatsReply(interaction, isPrivateResponse) {

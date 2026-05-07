@@ -16,12 +16,29 @@ function readBooleanFromEnv(name, defaultValue = false) {
   return ["true", "1", "yes", "oui"].includes(value.toLowerCase());
 }
 
+function readListFromEnv(name) {
+  const value = process.env[name];
+
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 const botConfig = {
   discord: {
     token: process.env.DISCORD_TOKEN,
     clientId: process.env.CLIENT_ID,
     guildId: process.env.GUILD_ID,
     deployCommandsGlobal: readBooleanFromEnv("DEPLOY_COMMANDS_GLOBAL", false),
+  },
+
+  developers: {
+    ids: readListFromEnv("DEVELOPER_IDS"),
   },
 
   firebase: {

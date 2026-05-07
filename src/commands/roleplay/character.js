@@ -620,12 +620,15 @@ function createCharacterListField(character) {
 
 function createCharacterViewEmbed(character, activeStatistics) {
   const economy = getEconomyService().normalizeEconomy(character.economy);
-  const statisticsLines = activeStatistics.map((statistic) => {
-    const value = character.statistics?.[statistic.id] ?? statistic.defaultValue;
-    const emoji = statistic.emoji ? `${statistic.emoji} ` : "";
+  const characterStatistics = character.statistics || {};
+  const statisticsLines = activeStatistics
+    .filter((statistic) => hasCharacterStatistic(characterStatistics, statistic.id))
+    .map((statistic) => {
+      const value = characterStatistics[statistic.id];
+      const emoji = statistic.emoji ? `${statistic.emoji} ` : "";
 
-    return `${emoji}**${statistic.name}** | ${value}`;
-  });
+      return `${emoji}**${statistic.name}** | ${value}`;
+    });
   const description = [
     `### \\🎭 Personnage : **${character.name}**`,
     character.description,
@@ -635,7 +638,7 @@ function createCharacterViewEmbed(character, activeStatistics) {
     `**Statut** | **\`${formatCharacterStatus(character)}\`**`,
     `**Propriétaire** | <@${character.ownerId}>`,
     "### \\🧬 **Statistiques**",
-    statisticsLines.length > 0 ? statisticsLines.join("\n") : "Aucune statistique active n'est configurée sur ce serveur.",
+    statisticsLines.length > 0 ? statisticsLines.join("\n") : "Ce personnage ne possède aucune statistique active.",
     "### \\💰 **Économie**",
     `**Sur soi** | **\`${formatCurrency(economy.wallet)}\`**`,
     `**Banque** | **\`${formatCurrency(economy.bank)}\`**`,
@@ -648,6 +651,10 @@ function createCharacterViewEmbed(character, activeStatistics) {
     .setImage(character.avatarUrl)
     .setFooter({ text: "by Itoshuga" })
     .setTimestamp();
+}
+
+function hasCharacterStatistic(characterStatistics, statisticId) {
+  return Object.prototype.hasOwnProperty.call(characterStatistics, statisticId);
 }
 
 async function replyWithError(interaction, message) {
