@@ -234,6 +234,97 @@ Valeurs par défaut :
 }
 ```
 
+## Objets et boutique RP
+
+La commande `/item` gère la boutique et l'inventaire roleplay des personnages.
+
+Sous-commandes disponibles :
+
+- `/item shop` : affiche le magasin interactif avec les Components V2 de Discord.
+- `/item inventory` : affiche l'inventaire d'un personnage.
+- `/item use` : utilise un objet de l'inventaire.
+- `/item buy` : achète directement un objet du magasin.
+- `/item sell` : vend un objet et récupère 50 % de sa valeur d'achat.
+- `/item info` : affiche les informations d'un objet.
+
+Le joueur choisit le personnage qui achète :
+
+```text
+/item shop character:Isen
+```
+
+Une catégorie peut aussi être sélectionnée :
+
+```text
+/item shop character:Isen category:vehicles
+```
+
+Le bot affiche les objets disponibles avec leur description, leur prix, leur stock éventuel et un bouton d'achat aligné à droite de chaque objet. Le magasin est paginé automatiquement quand il y a trop d'objets sur une seule page.
+
+Les achats utilisent l'argent sur soi du personnage, sont confirmés en privé et créent une transaction `shop_purchase` visible dans `/economy transactions`.
+
+Les ventes utilisent l'objet possédé dans l'inventaire du personnage, rendent 50 % du prix d'achat dans son argent sur soi et créent une transaction `shop_sale`.
+
+Les objets de boutique sont stockés ici :
+
+```text
+/guilds/{GUILD_ID}/shopItems/{ITEM_ID}
+```
+
+Les objets achetés sont ajoutés à l'inventaire du personnage :
+
+```text
+/guilds/{GUILD_ID}/characters/{CHARACTER_ID}/inventory/{ITEM_ID}
+```
+
+Chaque objet de boutique contient notamment :
+
+```js
+{
+  id: "basic-car",
+  name: "Voiture banale",
+  emoji: "🚙",
+  description: "Véhicule ordinaire, simple et fonctionnel.",
+  price: 25000,
+  category: "vehicles",
+  isEnabled: true,
+  isLimited: false,
+  stock: null,
+  maxPerCharacter: null,
+  isDeleted: false,
+  createdBy: "id_utilisateur",
+  updatedBy: "id_utilisateur",
+  createdAt: "2026-05-06T10:00:00.000Z",
+  updatedAt: "2026-05-06T10:00:00.000Z"
+}
+```
+
+## Configuration staff
+
+La commande `/config` centralise les actions réservées au staff. Elle demande la permission `Gérer le serveur`.
+
+Configuration des objets :
+
+- `/config item create` : crée un objet.
+- `/config item edit` : modifie un objet.
+- `/config item delete` : supprime doucement un objet.
+- `/config item enable` : rend un objet visible.
+- `/config item disable` : masque un objet.
+
+Configuration des statistiques :
+
+- `/config stats add` : ajoute une statistique et la synchronise aux personnages actifs.
+- `/config stats remove` : supprime doucement une statistique.
+
+Configuration de l'argent :
+
+- `/config money give` : ajoute de l'argent sur soi à un personnage.
+- `/config money remove` : retire de l'argent sur soi à un personnage.
+
+Les mouvements d'argent staff créent des transactions `admin_add` et `admin_remove`, visibles dans `/economy transactions`.
+
+Les anciennes actions de gestion de boutique sont donc regroupées dans `/config item`.
+
 ## Commande de jets RP
 
 La commande `/roll` permet de lancer des jets de dés roleplay.
@@ -296,7 +387,9 @@ src/
     moderation/
     roleplay/
       character.js
+      config.js
       economy.js
+      item.js
       roll.js
       stats.js
     utilitaires/
@@ -312,10 +405,43 @@ src/
     commandHandler.js
     eventHandler.js
     deployHandler.js
+  modules/
+    config/
+      autocomplete.js
+      builder.js
+      items.js
+      money.js
+      shared.js
+      statistics.js
+    economy/
+      autocomplete.js
+      builder.js
+      buttons.js
+      constants.js
+      embeds.js
+      handlers.js
+      shared.js
+    item/
+      autocomplete.js
+      builder.js
+      buttons.js
+      constants.js
+      embeds.js
+      handlers.js
+      shared.js
+      shopView.js
+    stats/
+      autocomplete.js
+      builder.js
+      constants.js
+      embeds.js
+      handlers.js
+      shared.js
   services/
     characterService.js
     economyService.js
     firebase.js
+    shopService.js
     statisticsService.js
     webhookService.js
   config/

@@ -320,6 +320,99 @@ async function payment(guildId, fromCharacterId, toCharacterId, userId, amount, 
   });
 }
 
+async function adminGive(guildId, characterId, staffUserId, amount, reason = null) {
+  validatePositiveAmount(amount);
+
+  const settings = await getEconomySettings(guildId);
+  const characterRef = getCharactersCollection(guildId).doc(characterId);
+
+  return getDb().runTransaction(async (transaction) => {
+    const character = await readUsableCharacter(transaction, characterRef);
+    const economy = normalizeEconomy(character.economy, settings);
+    const updatedAt = new Date().toISOString();
+    const updatedEconomy = {
+      ...economy,
+      wallet: economy.wallet + amount,
+    };
+
+    transaction.update(characterRef, {
+      "economy.bank": updatedEconomy.bank,
+      "economy.lastWorkAt": updatedEconomy.lastWorkAt,
+      "economy.wallet": updatedEconomy.wallet,
+      updatedAt,
+      updatedBy: staffUserId,
+    });
+
+    createTransaction(transaction, guildId, settings, {
+      amount,
+      characterId: character.id,
+      characterIds: [character.id],
+      characterName: character.name,
+      reason,
+      staffUserId,
+      type: "admin_add",
+      userId: character.ownerId,
+    });
+
+    return {
+      amount,
+      character,
+      economy: updatedEconomy,
+      reason,
+      settings,
+    };
+  });
+}
+
+async function adminRemove(guildId, characterId, staffUserId, amount, reason = null) {
+  validatePositiveAmount(amount);
+
+  const settings = await getEconomySettings(guildId);
+  const characterRef = getCharactersCollection(guildId).doc(characterId);
+
+  return getDb().runTransaction(async (transaction) => {
+    const character = await readUsableCharacter(transaction, characterRef);
+    const economy = normalizeEconomy(character.economy, settings);
+
+    if (economy.wallet < amount) {
+      throw new EconomyError("not_enough_wallet", "Ce personnage n'a pas assez d'argent sur lui.");
+    }
+
+    const updatedAt = new Date().toISOString();
+    const updatedEconomy = {
+      ...economy,
+      wallet: economy.wallet - amount,
+    };
+
+    transaction.update(characterRef, {
+      "economy.bank": updatedEconomy.bank,
+      "economy.lastWorkAt": updatedEconomy.lastWorkAt,
+      "economy.wallet": updatedEconomy.wallet,
+      updatedAt,
+      updatedBy: staffUserId,
+    });
+
+    createTransaction(transaction, guildId, settings, {
+      amount,
+      characterId: character.id,
+      characterIds: [character.id],
+      characterName: character.name,
+      reason,
+      staffUserId,
+      type: "admin_remove",
+      userId: character.ownerId,
+    });
+
+    return {
+      amount,
+      character,
+      economy: updatedEconomy,
+      reason,
+      settings,
+    };
+  });
+}
+
 async function listTransactions(guildId, characterId, limit = 10) {
   const snapshot = await getTransactionsCollection(guildId)
     .orderBy("createdAt", "desc")
@@ -409,6 +502,8 @@ function randomBetween(minimum, maximum) {
 
 module.exports = {
   EconomyError,
+  adminGive,
+  adminRemove,
   createInitialEconomy,
   deposit,
   getEconomySettings,
