@@ -144,7 +144,11 @@ Sous-commandes disponibles :
 
 Chaque utilisateur peut avoir jusqu'à 3 personnages actifs par serveur. Les personnages supprimés sont conservés avec `isDeleted: true`, afin de garder un historique propre.
 
-`/character create` demande `name`, `description`, `proxy` et `avatar`. Le proxy doit être unique sur le serveur, contenir entre 3 et 20 caractères, et se terminer par `:`.
+`/character create` ouvre un formulaire Discord pour saisir `name`, `description`, `proxy` et envoyer l'avatar du personnage en pièce jointe. Le proxy doit être unique sur le serveur, contenir entre 3 et 20 caractères, et se terminer par `:`.
+
+`/character edit` affiche d'abord un menu déroulant éphémère pour choisir le personnage, puis ouvre un formulaire prérempli avec son nom, sa description et son proxy. L'avatar peut aussi être remplacé en envoyant une nouvelle image.
+
+`/character delete` ouvre aussi un formulaire Discord avec un menu déroulant pour choisir le personnage à supprimer.
 
 À la création, le personnage reçoit automatiquement toutes les statistiques actives du serveur avec leur valeur par défaut.
 
@@ -391,7 +395,7 @@ Le logger centralisé se trouve dans `src/utils/logger.js`.
 Il ajoute automatiquement :
 
 - un horodatage ;
-- un niveau de log : `INFO`, `OK`, `WARN`, `ERROR` ;
+- un niveau de log : `INFO`, `OKAY`, `WARN`, `ERROR` ;
 - une source lisible : `BOT`, `COMMANDES`, `EVENEMENTS`, `DEPLOIEMENT`, `FIREBASE` ;
 - des couleurs ANSI dans les terminaux compatibles ;
 - des helpers de pluriel pour éviter les formulations artificielles avec parenthèses.
@@ -521,6 +525,10 @@ Chaque commande doit fournir au minimum `data`, `name`, `description`, `category
 const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
+  name: "dire",
+  description: "Répète un message.",
+  category: "Utilitaires",
+  usage: "/dire message:texte",
   data: new SlashCommandBuilder()
     .setName("dire")
     .setDescription("Répète un message.")
@@ -530,12 +538,6 @@ module.exports = {
         .setDescription("Message à répéter.")
         .setRequired(true),
     ),
-
-  name: "dire",
-  description: "Répète un message.",
-  category: "Utilitaires",
-  usage: "/dire message:texte",
-
   isEnabled: true,
   isDeployed: true,
 

@@ -85,6 +85,34 @@ async function handleButtonInteraction(interaction, client) {
   }
 }
 
+async function handleModalSubmitInteraction(interaction, client) {
+  const command = [...client.commands.values()].find((loadedCommand) => {
+    return (
+      typeof loadedCommand.componentPrefix === "string" &&
+      typeof loadedCommand.handleModalSubmit === "function" &&
+      interaction.customId.startsWith(loadedCommand.componentPrefix)
+    );
+  });
+
+  if (!command) {
+    logger.warning("INTERACTIONS", `Formulaire ${interaction.customId} reçu mais aucun handler n'est disponible.`);
+    await replyPrivately(interaction, "Ce formulaire n'est plus disponible pour le moment.");
+    return;
+  }
+
+  if (!command.isEnabled) {
+    await replyPrivately(interaction, "Cette fonctionnalité est actuellement en maintenance.");
+    return;
+  }
+
+  try {
+    await command.handleModalSubmit(interaction, client);
+  } catch (error) {
+    logger.error("INTERACTIONS", `Erreur lors du traitement du formulaire ${interaction.customId}.`, error);
+    await replyPrivately(interaction, "Une erreur est survenue lors du traitement de ce formulaire.");
+  }
+}
+
 async function handleAutocompleteInteraction(interaction, client) {
   const command = client.commands.get(interaction.commandName);
 
@@ -125,6 +153,11 @@ module.exports = {
 
     if (interaction.isButton()) {
       await handleButtonInteraction(interaction, client);
+      return;
+    }
+
+    if (interaction.isModalSubmit()) {
+      await handleModalSubmitInteraction(interaction, client);
       return;
     }
 

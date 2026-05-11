@@ -1,8 +1,15 @@
 const {
+  ActionRowBuilder,
   EmbedBuilder,
+  FileUploadBuilder,
+  LabelBuilder,
   MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
 
 const CHARACTER_COLORS = {
@@ -13,6 +20,13 @@ const CHARACTER_COLORS = {
 
 const MAX_ACTIVE_CHARACTERS = 3;
 const DEFAULT_STATISTICS_VERSION = 1;
+const CHARACTER_COMPONENT_PREFIX = "character";
+const CHARACTER_CREATE_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:create`;
+const CHARACTER_DELETE_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:delete`;
+const CHARACTER_EDIT_SELECT_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:select`;
+const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:modal`;
+const CHARACTER_EDIT_MODAL_TTL_MS = 15 * 60 * 1000;
+const pendingCharacterEdits = new Map();
 
 module.exports = {
   name: "character",
@@ -25,94 +39,17 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("create")
-        .setDescription("Crée un personnage roleplay.")
-        .addStringOption((option) =>
-          option
-            .setName("name")
-            .setDescription("Nom du personnage.")
-            .setRequired(true)
-            .setMaxLength(80),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("description")
-            .setDescription("Description roleplay du personnage.")
-            .setRequired(true)
-            .setMaxLength(1500),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("proxy")
-            .setDescription("Proxy utilisé pour parler avec ce personnage, par exemple isen:.")
-            .setRequired(true)
-            .setMinLength(3)
-            .setMaxLength(20),
-        )
-        .addAttachmentOption((option) =>
-          option
-            .setName("avatar")
-            .setDescription("Image à utiliser comme avatar du personnage.")
-            .setRequired(true),
-        ),
+        .setDescription("Crée un personnage roleplay avec un formulaire."),
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("edit")
-        .setDescription("Modifie un personnage roleplay existant.")
-        .addStringOption((option) =>
-          option
-            .setName("character")
-            .setDescription("Personnage à modifier.")
-            .setRequired(true)
-            .setAutocomplete(true),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("name")
-            .setDescription("Nouveau nom du personnage.")
-            .setRequired(false)
-            .setMaxLength(80),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("description")
-            .setDescription("Nouvelle description roleplay.")
-            .setRequired(false)
-            .setMaxLength(1500),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("proxy")
-            .setDescription("Nouveau proxy du personnage.")
-            .setRequired(false)
-            .setMinLength(3)
-            .setMaxLength(20),
-        )
-        .addStringOption((option) =>
-          option
-            .setName("avatar_url")
-            .setDescription("Nouveau lien direct vers l'avatar.")
-            .setRequired(false)
-            .setMaxLength(500),
-        )
-        .addAttachmentOption((option) =>
-          option
-            .setName("avatar")
-            .setDescription("Nouvelle image d'avatar.")
-            .setRequired(false),
-        ),
+        .setDescription("Modifie un personnage roleplay avec un formulaire."),
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("delete")
-        .setDescription("Supprime doucement un personnage roleplay.")
-        .addStringOption((option) =>
-          option
-            .setName("character")
-            .setDescription("Personnage à supprimer.")
-            .setRequired(true)
-            .setAutocomplete(true),
-        ),
+        .setDescription("Supprime doucement un personnage roleplay avec un formulaire."),
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -137,6 +74,7 @@ module.exports = {
             .setAutocomplete(true),
         ),
     ),
+  componentPrefix: CHARACTER_COMPONENT_PREFIX,
   isEnabled: true,
   isDeployed: true,
 
@@ -148,20 +86,20 @@ module.exports = {
 
     const subcommand = interaction.options.getSubcommand();
 
-    await deferCharacterReply(interaction, shouldUsePrivateResponse(subcommand));
-
     if (subcommand === "create") {
       await handleCreate(interaction);
       return;
     }
 
-    if (subcommand === "edit") {
-      await handleEdit(interaction);
+    if (subcommand === "delete") {
+      await handleDelete(interaction);
       return;
     }
 
-    if (subcommand === "delete") {
-      await handleDelete(interaction);
+    await deferCharacterReply(interaction, shouldUsePrivateResponse(subcommand));
+
+    if (subcommand === "edit") {
+      await handleEdit(interaction);
       return;
     }
 
@@ -196,6 +134,34 @@ module.exports = {
       }));
 
     await interaction.respond(choices);
+  },
+
+  async handleModalSubmit(interaction) {
+    if (interaction.customId.startsWith(CHARACTER_CREATE_MODAL_PREFIX)) {
+      await handleCreateModalSubmit(interaction);
+      return;
+    }
+
+    if (interaction.customId.startsWith(CHARACTER_DELETE_MODAL_PREFIX)) {
+      await handleDeleteModalSubmit(interaction);
+      return;
+    }
+
+    if (interaction.customId.startsWith(CHARACTER_EDIT_MODAL_PREFIX)) {
+      await handleEditModalSubmit(interaction);
+      return;
+    }
+
+    await replyWithError(interaction, "Ce formulaire n'est plus disponible pour le moment.");
+  },
+
+  async handleSelectMenu(interaction) {
+    if (interaction.customId.startsWith(CHARACTER_EDIT_SELECT_PREFIX)) {
+      await handleEditSelectMenu(interaction);
+      return;
+    }
+
+    await replyWithError(interaction, "Ce menu n'est plus disponible pour le moment.");
   },
 };
 
@@ -262,45 +228,228 @@ function removeReplyOnlyOptions(payload) {
   return editablePayload;
 }
 
-function getCreateValues(interaction) {
-  return {
-    avatarUrl: getAvatarAttachmentUrl(interaction),
-    description: interaction.options.getString("description", true).trim(),
-    name: interaction.options.getString("name", true).trim(),
-    proxy: getCharacterService().normalizeProxy(interaction.options.getString("proxy", true)),
-  };
+async function showCharacterCreateModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId(`${CHARACTER_CREATE_MODAL_PREFIX}:${interaction.user.id}`)
+    .setTitle("Création de personnage")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Nom du personnage")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("name")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(80),
+        ),
+      new LabelBuilder()
+        .setLabel("Description roleplay")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("description")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(1500),
+        ),
+      new LabelBuilder()
+        .setLabel("Proxy du personnage")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("proxy")
+            .setPlaceholder("Exemple : isen:")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMinLength(3)
+            .setMaxLength(20),
+        ),
+      new LabelBuilder()
+        .setLabel("Avatar du personnage")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("avatar")
+            .setMinValues(1)
+            .setMaxValues(1)
+            .setRequired(true),
+        ),
+    );
+
+  await interaction.showModal(modal);
 }
 
-function getEditValues(interaction, currentCharacter) {
-  const avatarUrl = getAvatarUrl(interaction);
-  const description = interaction.options.getString("description");
-  const name = interaction.options.getString("name");
-  const proxy = interaction.options.getString("proxy");
+async function showCharacterDeleteModal(interaction) {
+  const characters = await getDeletableCharacters(interaction);
 
-  return {
-    avatarUrl: avatarUrl || currentCharacter.avatarUrl,
-    description: description === null ? currentCharacter.description : description.trim(),
-    hasChanges: [avatarUrl, description, name, proxy].some((value) => value !== null),
-    name: name === null ? currentCharacter.name : name.trim(),
-    proxy: proxy === null ? currentCharacter.proxy : getCharacterService().normalizeProxy(proxy),
-  };
-}
-
-function getAvatarUrl(interaction) {
-  const attachment = interaction.options.getAttachment("avatar");
-  const avatarUrl = interaction.options.getString("avatar_url");
-
-  if (attachment?.url) {
-    return attachment.url;
+  if (characters.length === 0) {
+    await replyWithError(interaction, "Aucun personnage actif ne peut être supprimé.");
+    return;
   }
 
-  return avatarUrl === null ? null : avatarUrl.trim();
+  const modal = new ModalBuilder()
+    .setCustomId(`${CHARACTER_DELETE_MODAL_PREFIX}:${interaction.user.id}`)
+    .setTitle("Suppression de personnage")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Personnage à supprimer")
+        .setStringSelectMenuComponent(
+          new StringSelectMenuBuilder()
+            .setCustomId("character")
+            .setPlaceholder("Choisis le personnage à supprimer")
+            .setMinValues(1)
+            .setMaxValues(1)
+            .setOptions(characters.slice(0, 25).map(createCharacterSelectOption)),
+        ),
+    );
+
+  await interaction.showModal(modal);
 }
 
-function getAvatarAttachmentUrl(interaction) {
-  const attachment = interaction.options.getAttachment("avatar", true);
+async function showCharacterEditSelectMessage(interaction) {
+  const characters = await getEditableCharacters(interaction);
 
-  return attachment.url;
+  if (characters.length === 0) {
+    await replyWithError(interaction, "Aucun personnage actif ne peut être modifié.");
+    return;
+  }
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`${CHARACTER_EDIT_SELECT_PREFIX}:${interaction.user.id}`)
+    .setPlaceholder("Choisis le personnage à modifier")
+    .setMinValues(1)
+    .setMaxValues(1)
+    .setOptions(characters.slice(0, 25).map(createCharacterSelectOption));
+
+  await sendCharacterResponse(interaction, {
+    content: "Choisis le personnage que tu veux modifier.",
+    components: [
+      new ActionRowBuilder().addComponents(selectMenu),
+    ],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function showCharacterEditModal(interaction, character, requestId) {
+  const modal = new ModalBuilder()
+    .setCustomId(`${CHARACTER_EDIT_MODAL_PREFIX}:${interaction.user.id}:${requestId}`)
+    .setTitle("Modification de personnage")
+    .addLabelComponents(
+      new LabelBuilder()
+        .setLabel("Nom du personnage")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("name")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(80)
+            .setValue(truncateText(character.name, 80)),
+        ),
+      new LabelBuilder()
+        .setLabel("Description roleplay")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("description")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(1500)
+            .setValue(truncateText(character.description || "", 1500)),
+        ),
+      new LabelBuilder()
+        .setLabel("Proxy du personnage")
+        .setTextInputComponent(
+          new TextInputBuilder()
+            .setCustomId("proxy")
+            .setPlaceholder("Exemple : isen:")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMinLength(3)
+            .setMaxLength(20)
+            .setValue(truncateText(character.proxy, 20)),
+        ),
+      new LabelBuilder()
+        .setLabel("Nouvel avatar")
+        .setFileUploadComponent(
+          new FileUploadBuilder()
+            .setCustomId("avatar")
+            .setMinValues(0)
+            .setMaxValues(1)
+            .setRequired(false),
+        ),
+    );
+
+  await interaction.showModal(modal);
+}
+
+function getCreateValuesFromModal(interaction) {
+  const avatar = getAvatarUpload(interaction);
+
+  return {
+    avatarContentType: avatar?.contentType || null,
+    avatarUrl: avatar?.url || null,
+    description: interaction.fields.getTextInputValue("description").trim(),
+    name: interaction.fields.getTextInputValue("name").trim(),
+    proxy: getCharacterService().normalizeProxy(interaction.fields.getTextInputValue("proxy")),
+  };
+}
+
+async function getDeletableCharacters(interaction) {
+  if (canManageServer(interaction)) {
+    return getCharacterService().listCharacters(interaction.guildId);
+  }
+
+  return getCharacterService().listCharactersByOwner(interaction.guildId, interaction.user.id);
+}
+
+async function getEditableCharacters(interaction) {
+  return getDeletableCharacters(interaction);
+}
+
+function createCharacterSelectOption(character) {
+  return {
+    label: truncateText(character.name, 100),
+    value: character.id,
+  };
+}
+
+function getEditValuesFromModal(interaction, currentCharacter) {
+  const avatar = getOptionalAvatarUpload(interaction);
+  const avatarUrl = avatar?.url || currentCharacter.avatarUrl;
+  const description = interaction.fields.getTextInputValue("description").trim();
+  const name = interaction.fields.getTextInputValue("name").trim();
+  const proxy = getCharacterService().normalizeProxy(interaction.fields.getTextInputValue("proxy"));
+
+  return {
+    avatarContentType: avatar?.contentType || null,
+    avatarUrl,
+    description,
+    hasChanges:
+      avatarUrl !== currentCharacter.avatarUrl ||
+      description !== currentCharacter.description ||
+      name !== currentCharacter.name ||
+      proxy !== currentCharacter.proxy,
+    name,
+    proxy,
+  };
+}
+
+function getAvatarUpload(interaction) {
+  const uploadedFiles = interaction.fields.getUploadedFiles("avatar", true);
+
+  return uploadedFiles.first() || null;
+}
+
+function getOptionalAvatarUpload(interaction) {
+  const uploadedFiles = interaction.fields.getUploadedFiles("avatar", false);
+
+  return uploadedFiles?.first() || null;
+}
+
+function cleanupExpiredCharacterEdits() {
+  const now = Date.now();
+
+  for (const [key, pendingEdit] of pendingCharacterEdits.entries()) {
+    if (now - pendingEdit.createdAt > CHARACTER_EDIT_MODAL_TTL_MS) {
+      pendingCharacterEdits.delete(key);
+    }
+  }
 }
 
 function validateCharacterValues(values, options = {}) {
@@ -320,6 +469,10 @@ function validateCharacterValues(values, options = {}) {
 
   if (values.avatarUrl && !isValidHttpUrl(values.avatarUrl)) {
     errors.push("L'avatar doit être une URL valide ou une image envoyée en pièce jointe.");
+  }
+
+  if (values.avatarContentType && !values.avatarContentType.startsWith("image/")) {
+    errors.push("L'avatar envoyé doit être une image.");
   }
 
   errors.push(...validateProxy(values.proxy));
@@ -352,8 +505,127 @@ function isValidHttpUrl(value) {
 }
 
 async function handleCreate(interaction) {
+  await showCharacterCreateModal(interaction);
+}
+
+async function handleCreateModalSubmit(interaction) {
+  if (!interaction.guildId) {
+    await replyWithError(interaction, "Cette commande doit être utilisée dans un serveur Discord.");
+    return;
+  }
+
+  const [, , userId] = interaction.customId.split(":");
+
+  if (userId !== interaction.user.id) {
+    await replyWithError(interaction, "Ce formulaire ne t'appartient pas.");
+    return;
+  }
+
+  await deferCharacterReply(interaction, true);
+
+  const values = getCreateValuesFromModal(interaction);
+
+  await createCharacterFromValues(interaction, values);
+}
+
+async function handleDeleteModalSubmit(interaction) {
+  if (!interaction.guildId) {
+    await replyWithError(interaction, "Cette commande doit être utilisée dans un serveur Discord.");
+    return;
+  }
+
+  const [, , userId] = interaction.customId.split(":");
+
+  if (userId !== interaction.user.id) {
+    await replyWithError(interaction, "Ce formulaire ne t'appartient pas.");
+    return;
+  }
+
+  await deferCharacterReply(interaction, true);
+
+  const [characterId] = interaction.fields.getStringSelectValues("character");
+
+  await deleteCharacterById(interaction, characterId);
+}
+
+async function handleEditSelectMenu(interaction) {
+  cleanupExpiredCharacterEdits();
+
+  const [, , , userId] = interaction.customId.split(":");
+
+  if (userId !== interaction.user.id) {
+    await replyWithError(interaction, "Ce menu ne t'appartient pas.");
+    return;
+  }
+
+  const [characterId] = interaction.values;
+  const character = await getCharacterService().getCharacter(interaction.guildId, characterId);
+
+  if (!character) {
+    await replyWithError(interaction, "Ce personnage est introuvable.");
+    return;
+  }
+
+  if (!canManageCharacter(interaction, character)) {
+    await replyWithError(interaction, "Tu ne peux modifier que tes propres personnages.");
+    return;
+  }
+
+  pendingCharacterEdits.set(interaction.id, {
+    characterId,
+    createdAt: Date.now(),
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+  });
+
+  await showCharacterEditModal(interaction, character, interaction.id);
+}
+
+async function handleEditModalSubmit(interaction) {
+  cleanupExpiredCharacterEdits();
+
+  if (!interaction.guildId) {
+    await replyWithError(interaction, "Cette commande doit être utilisée dans un serveur Discord.");
+    return;
+  }
+
+  const [, , , userId, requestId] = interaction.customId.split(":");
+
+  if (userId !== interaction.user.id) {
+    await replyWithError(interaction, "Ce formulaire ne t'appartient pas.");
+    return;
+  }
+
+  const pendingEdit = pendingCharacterEdits.get(requestId);
+
+  if (!pendingEdit || pendingEdit.guildId !== interaction.guildId || pendingEdit.userId !== interaction.user.id) {
+    await replyWithError(interaction, "Ce formulaire a expiré. Relance `/character edit` pour modifier ton personnage.");
+    return;
+  }
+
+  pendingCharacterEdits.delete(requestId);
+
+  await deferCharacterReply(interaction, true);
+
+  const currentCharacter = await getCharacterService().getCharacter(interaction.guildId, pendingEdit.characterId);
+
+  if (!currentCharacter) {
+    await replyWithError(interaction, "Ce personnage est introuvable.");
+    return;
+  }
+
+  if (!canManageCharacter(interaction, currentCharacter)) {
+    await replyWithError(interaction, "Tu ne peux modifier que tes propres personnages.");
+    return;
+  }
+
+  const values = getEditValuesFromModal(interaction, currentCharacter);
+
+  await updateCharacterFromValues(interaction, currentCharacter, values);
+}
+
+async function createCharacterFromValues(interaction, values) {
   const characterService = getCharacterService();
-  const values = getCreateValues(interaction);
   const validationErrors = validateCharacterValues(values, {
     requireAvatar: true,
   });
@@ -410,21 +682,11 @@ async function handleCreate(interaction) {
 }
 
 async function handleEdit(interaction) {
+  await showCharacterEditSelectMessage(interaction);
+}
+
+async function updateCharacterFromValues(interaction, currentCharacter, values) {
   const characterService = getCharacterService();
-  const characterId = interaction.options.getString("character", true);
-  const currentCharacter = await characterService.getCharacter(interaction.guildId, characterId);
-
-  if (!currentCharacter) {
-    await replyWithError(interaction, "Ce personnage est introuvable.");
-    return;
-  }
-
-  if (!canManageCharacter(interaction, currentCharacter)) {
-    await replyWithError(interaction, "Tu ne peux modifier que tes propres personnages.");
-    return;
-  }
-
-  const values = getEditValues(interaction, currentCharacter);
 
   if (!values.hasChanges) {
     await replyWithError(interaction, "Aucune modification n'a été fournie.");
@@ -472,8 +734,11 @@ async function handleEdit(interaction) {
 }
 
 async function handleDelete(interaction) {
+  await showCharacterDeleteModal(interaction);
+}
+
+async function deleteCharacterById(interaction, characterId) {
   const characterService = getCharacterService();
-  const characterId = interaction.options.getString("character", true);
   const character = await characterService.getCharacter(interaction.guildId, characterId);
 
   if (!character) {
