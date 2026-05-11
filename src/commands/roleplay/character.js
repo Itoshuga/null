@@ -278,7 +278,7 @@ async function showCharacterCreateModal(interaction) {
             .setCustomId("description")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
-            .setMaxLength(1500),
+            .setMaxLength(500),
         ),
       new LabelBuilder()
         .setLabel("Proxy du personnage")
@@ -354,7 +354,7 @@ async function showCharacterEditModal(interaction, character, requestId) {
             .setCustomId("description")
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(true)
-            .setMaxLength(1500)
+            .setMaxLength(500)
             .setValue(truncateText(character.description || "", 1500)),
         ),
       new LabelBuilder()
