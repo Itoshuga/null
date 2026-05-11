@@ -146,9 +146,11 @@ Chaque utilisateur peut avoir jusqu'à 3 personnages actifs par serveur. Les per
 
 `/character create` ouvre un formulaire Discord pour saisir `name`, `description`, `proxy` et envoyer l'avatar du personnage en pièce jointe. Le proxy doit être unique sur le serveur, contenir entre 3 et 20 caractères, et se terminer par `:`.
 
-`/character edit` affiche d'abord un menu déroulant éphémère pour choisir le personnage, puis ouvre un formulaire prérempli avec son nom, sa description et son proxy. L'avatar peut aussi être remplacé en envoyant une nouvelle image.
+`/character edit character:<personnage>` ouvre directement un formulaire d'édition prérempli avec son nom, sa description et son proxy. L'avatar peut aussi être remplacé en envoyant une nouvelle image.
 
 `/character delete` ouvre aussi un formulaire Discord avec un menu déroulant pour choisir le personnage à supprimer.
+
+`/character view` affiche par défaut uniquement la description et l'image du personnage. Des boutons permettent ensuite d'afficher les informations, les statistiques ou l'économie sous forme de champs inline.
 
 À la création, le personnage reçoit automatiquement toutes les statistiques actives du serveur avec leur valeur par défaut.
 

@@ -1,5 +1,7 @@
 const {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   EmbedBuilder,
   FileUploadBuilder,
   LabelBuilder,
@@ -26,7 +28,16 @@ const CHARACTER_DELETE_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:delete`;
 const CHARACTER_EDIT_SELECT_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:select`;
 const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:modal`;
 const CHARACTER_EDIT_MODAL_TTL_MS = 15 * 60 * 1000;
+const CHARACTER_VIEW_BUTTON_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:view`;
+const CHARACTER_VIEW_CONTEXT_TTL_MS = 60 * 60 * 1000;
+const CHARACTER_VIEW_PANELS = {
+  economy: "economy",
+  information: "information",
+  profile: "profile",
+  statistics: "statistics",
+};
 const pendingCharacterEdits = new Map();
+const characterViewContexts = new Map();
 
 module.exports = {
   name: "character",
@@ -44,7 +55,14 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("edit")
-        .setDescription("Modifie un personnage roleplay avec un formulaire."),
+        .setDescription("Modifie un personnage roleplay avec un formulaire.")
+        .addStringOption((option) =>
+          option
+            .setName("character")
+            .setDescription("Personnage à modifier.")
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -91,17 +109,17 @@ module.exports = {
       return;
     }
 
+    if (subcommand === "edit") {
+      await handleEdit(interaction);
+      return;
+    }
+
     if (subcommand === "delete") {
       await handleDelete(interaction);
       return;
     }
 
     await deferCharacterReply(interaction, shouldUsePrivateResponse(subcommand));
-
-    if (subcommand === "edit") {
-      await handleEdit(interaction);
-      return;
-    }
 
     if (subcommand === "list") {
       await handleList(interaction);
@@ -162,6 +180,15 @@ module.exports = {
     }
 
     await replyWithError(interaction, "Ce menu n'est plus disponible pour le moment.");
+  },
+
+  async handleButton(interaction) {
+    if (interaction.customId.startsWith(CHARACTER_VIEW_BUTTON_PREFIX)) {
+      await handleCharacterViewButton(interaction);
+      return;
+    }
+
+    await replyWithError(interaction, "Ce bouton n'est plus disponible pour le moment.");
   },
 };
 
@@ -452,6 +479,35 @@ function cleanupExpiredCharacterEdits() {
   }
 }
 
+function createCharacterViewContext(interaction, character) {
+  cleanupExpiredCharacterViewContexts();
+
+  characterViewContexts.set(interaction.id, {
+    characterId: character.id,
+    createdAt: Date.now(),
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+  });
+
+  return interaction.id;
+}
+
+function getCharacterViewContext(contextId) {
+  cleanupExpiredCharacterViewContexts();
+
+  return characterViewContexts.get(contextId) || null;
+}
+
+function cleanupExpiredCharacterViewContexts() {
+  const now = Date.now();
+
+  for (const [key, context] of characterViewContexts.entries()) {
+    if (now - context.createdAt > CHARACTER_VIEW_CONTEXT_TTL_MS) {
+      characterViewContexts.delete(key);
+    }
+  }
+}
+
 function validateCharacterValues(values, options = {}) {
   const errors = [];
 
@@ -624,6 +680,46 @@ async function handleEditModalSubmit(interaction) {
   await updateCharacterFromValues(interaction, currentCharacter, values);
 }
 
+async function handleCharacterViewButton(interaction) {
+  const { contextId, panel } = parseCharacterViewButtonId(interaction.customId);
+  const context = getCharacterViewContext(contextId);
+
+  if (!context || context.guildId !== interaction.guildId) {
+    await replyWithError(interaction, "Cette fiche personnage n'est plus disponible.");
+    return;
+  }
+
+  if (context.userId !== interaction.user.id) {
+    await replyWithError(interaction, "Cette fiche personnage ne t'appartient pas.");
+    return;
+  }
+
+  const character = await getCharacterService().getCharacter(interaction.guildId, context.characterId);
+
+  if (!character) {
+    await replyWithError(interaction, "Ce personnage est introuvable.");
+    return;
+  }
+
+  if (!canManageCharacter(interaction, character)) {
+    await replyWithError(interaction, "Tu ne peux afficher que tes propres personnages.");
+    return;
+  }
+
+  const activeStatistics = await getActiveStatistics(interaction.guildId);
+
+  await interaction.update(createCharacterViewPayload(character, activeStatistics, contextId, panel));
+}
+
+function parseCharacterViewButtonId(customId) {
+  const [, , contextId, panel] = customId.split(":");
+
+  return {
+    contextId,
+    panel,
+  };
+}
+
 async function createCharacterFromValues(interaction, values) {
   const characterService = getCharacterService();
   const validationErrors = validateCharacterValues(values, {
@@ -682,7 +778,29 @@ async function createCharacterFromValues(interaction, values) {
 }
 
 async function handleEdit(interaction) {
-  await showCharacterEditSelectMessage(interaction);
+  cleanupExpiredCharacterEdits();
+
+  const characterId = interaction.options.getString("character", true);
+  const character = await getCharacterService().getCharacter(interaction.guildId, characterId);
+
+  if (!character) {
+    await replyWithError(interaction, "Ce personnage est introuvable.");
+    return;
+  }
+
+  if (!canManageCharacter(interaction, character)) {
+    await replyWithError(interaction, "Tu ne peux modifier que tes propres personnages.");
+    return;
+  }
+
+  pendingCharacterEdits.set(interaction.id, {
+    characterId,
+    createdAt: Date.now(),
+    guildId: interaction.guildId,
+    userId: interaction.user.id,
+  });
+
+  await showCharacterEditModal(interaction, character, interaction.id);
 }
 
 async function updateCharacterFromValues(interaction, currentCharacter, values) {
@@ -792,10 +910,9 @@ async function handleView(interaction) {
   }
 
   const activeStatistics = await getActiveStatistics(interaction.guildId);
+  const contextId = createCharacterViewContext(interaction, character);
 
-  await sendCharacterResponse(interaction, {
-    embeds: [createCharacterViewEmbed(character, activeStatistics)],
-  });
+  await sendCharacterResponse(interaction, createCharacterViewPayload(character, activeStatistics, contextId));
 }
 
 async function createAvailableCharacterId(guildId, name) {
@@ -883,39 +1000,129 @@ function createCharacterListField(character) {
   };
 }
 
-function createCharacterViewEmbed(character, activeStatistics) {
-  const economy = getEconomyService().normalizeEconomy(character.economy);
-  const characterStatistics = character.statistics || {};
-  const statisticsLines = activeStatistics
-    .filter((statistic) => hasCharacterStatistic(characterStatistics, statistic.id))
-    .map((statistic) => {
-      const value = characterStatistics[statistic.id];
-      const emoji = statistic.emoji ? `${statistic.emoji} ` : "";
+function createCharacterViewPayload(character, activeStatistics, contextId, selectedPanel = CHARACTER_VIEW_PANELS.profile) {
+  return {
+    embeds: [createCharacterViewEmbed(character, activeStatistics, selectedPanel)],
+    components: [createCharacterViewButtonRow(contextId, selectedPanel)],
+  };
+}
 
-      return `${emoji}**${statistic.name}** | ${value}`;
-    });
-  const description = [
-    `### \\🎭 Personnage : **${character.name}**`,
-    character.description,
-    "### \\ℹ️ **Informations**",
-    `**ID** | *\`${character.id}\`*`,
-    `**Proxy** | \`${character.proxy}\``,
-    `**Statut** | **\`${formatCharacterStatus(character)}\`**`,
-    `**Propriétaire** | <@${character.ownerId}>`,
-    "### \\🧬 **Statistiques**",
-    statisticsLines.length > 0 ? statisticsLines.join("\n") : "Ce personnage ne possède aucune statistique active.",
-    "### \\💰 **Économie**",
-    `**Sur soi** | **\`${formatCurrency(economy.wallet)}\`**`,
-    `**Banque** | **\`${formatCurrency(economy.bank)}\`**`,
-    `**Total** | **\`${formatCurrency(economy.wallet + economy.bank)}\`**`,
-  ].join("\n");
+function createCharacterViewEmbed(character, activeStatistics, selectedPanel) {
+  if (selectedPanel === CHARACTER_VIEW_PANELS.information) {
+    return createCharacterInformationEmbed(character);
+  }
+
+  if (selectedPanel === CHARACTER_VIEW_PANELS.statistics) {
+    return createCharacterStatisticsEmbed(character, activeStatistics);
+  }
+
+  if (selectedPanel === CHARACTER_VIEW_PANELS.economy) {
+    return createCharacterEconomyEmbed(character);
+  }
+
+  return createCharacterProfileEmbed(character);
+}
+
+function createCharacterProfileEmbed(character) {
+  return new EmbedBuilder()
+    .setColor(CHARACTER_COLORS.detail)
+    .setDescription(truncateText([
+      `### \\🎭 Personnage : **${character.name}**`,
+      character.description,
+    ].join("\n"), 4000))
+    .setImage(character.avatarUrl);
+}
+
+function createCharacterInformationEmbed(character) {
+  return new EmbedBuilder()
+    .setColor(CHARACTER_COLORS.detail)
+    .setDescription(`### \\ℹ️ **Informations — ${character.name}**`)
+    .addFields(
+      {
+        name: "ID",
+        value: `\`${character.id}\``,
+        inline: true,
+      },
+      {
+        name: "Proxy",
+        value: `\`${character.proxy}\``,
+        inline: true,
+      },
+      {
+        name: "Statut",
+        value: `**\`${formatCharacterStatus(character)}\`**`,
+        inline: true,
+      },
+    )
+    .setImage(character.avatarUrl);
+}
+
+function createCharacterStatisticsEmbed(character, activeStatistics) {
+  const characterStatistics = character.statistics || {};
+  const statisticFields = activeStatistics
+    .filter((statistic) => hasCharacterStatistic(characterStatistics, statistic.id))
+    .slice(0, 25)
+    .map((statistic) => ({
+      name: `${statistic.emoji ? `${statistic.emoji} ` : ""}${statistic.name}`,
+      value: `**\`${characterStatistics[statistic.id]}\`**`,
+      inline: true,
+    }));
+
+  const embed = new EmbedBuilder()
+    .setColor(CHARACTER_COLORS.detail)
+    .setDescription(`### \\🧬 **Statistiques — ${character.name}**`)
+    .setImage(character.avatarUrl);
+
+  if (statisticFields.length === 0) {
+    return embed.setDescription([
+      `### \\🧬 **Statistiques — ${character.name}**`,
+      "Ce personnage ne possède aucune statistique active.",
+    ].join("\n"));
+  }
+
+  return embed.addFields(statisticFields);
+}
+
+function createCharacterEconomyEmbed(character) {
+  const economy = getEconomyService().normalizeEconomy(character.economy);
 
   return new EmbedBuilder()
     .setColor(CHARACTER_COLORS.detail)
-    .setDescription(truncateText(description, 4000))
-    .setImage(character.avatarUrl)
-    .setFooter({ text: "by Itoshuga" })
-    .setTimestamp();
+    .setDescription(`### \\💰 **Économie — ${character.name}**`)
+    .addFields(
+      {
+        name: "💵 Sur soi",
+        value: `**\`${formatCurrency(economy.wallet)}\`**`,
+        inline: true,
+      },
+      {
+        name: "🏦 Banque",
+        value: `**\`${formatCurrency(economy.bank)}\`**`,
+        inline: true,
+      },
+      {
+        name: "💰 Total",
+        value: `**\`${formatCurrency(economy.wallet + economy.bank)}\`**`,
+        inline: true,
+      },
+    )
+    .setImage(character.avatarUrl);
+}
+
+function createCharacterViewButtonRow(contextId, selectedPanel) {
+  return new ActionRowBuilder().addComponents(
+    createCharacterViewButton(contextId, CHARACTER_VIEW_PANELS.information, "Informations", "ℹ️", selectedPanel),
+    createCharacterViewButton(contextId, CHARACTER_VIEW_PANELS.statistics, "Statistiques", "🧬", selectedPanel),
+    createCharacterViewButton(contextId, CHARACTER_VIEW_PANELS.economy, "Économie", "💰", selectedPanel),
+  );
+}
+
+function createCharacterViewButton(contextId, panel, label, emoji, selectedPanel) {
+  return new ButtonBuilder()
+    .setCustomId(`${CHARACTER_VIEW_BUTTON_PREFIX}:${contextId}:${panel}`)
+    .setEmoji(emoji)
+    .setLabel(label)
+    .setStyle(panel === selectedPanel ? ButtonStyle.Primary : ButtonStyle.Secondary);
 }
 
 function hasCharacterStatistic(characterStatistics, statisticId) {
