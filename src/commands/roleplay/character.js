@@ -25,9 +25,14 @@ const DEFAULT_STATISTICS_VERSION = 1;
 const CHARACTER_COMPONENT_PREFIX = "character";
 const CHARACTER_CREATE_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:create`;
 const CHARACTER_DELETE_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:delete`;
-const CHARACTER_EDIT_SELECT_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:select`;
 const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:edit:modal`;
 const CHARACTER_EDIT_MODAL_TTL_MS = 15 * 60 * 1000;
+const CHARACTER_LIST_BUTTON_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:list:button`;
+const CHARACTER_LIST_CONTEXT_TTL_MS = 60 * 60 * 1000;
+const CHARACTER_LIST_DIRECTIONS = {
+  next: "next",
+  previous: "previous",
+};
 const CHARACTER_VIEW_BUTTON_PREFIX = `${CHARACTER_COMPONENT_PREFIX}:view`;
 const CHARACTER_VIEW_CONTEXT_TTL_MS = 60 * 60 * 1000;
 const CHARACTER_VIEW_PANELS = {
@@ -37,6 +42,7 @@ const CHARACTER_VIEW_PANELS = {
   statistics: "statistics",
 };
 const pendingCharacterEdits = new Map();
+const characterListContexts = new Map();
 const characterViewContexts = new Map();
 
 module.exports = {
@@ -173,16 +179,12 @@ module.exports = {
     await replyWithError(interaction, "Ce formulaire n'est plus disponible pour le moment.");
   },
 
-  async handleSelectMenu(interaction) {
-    if (interaction.customId.startsWith(CHARACTER_EDIT_SELECT_PREFIX)) {
-      await handleEditSelectMenu(interaction);
+  async handleButton(interaction) {
+    if (interaction.customId.startsWith(CHARACTER_LIST_BUTTON_PREFIX)) {
+      await handleCharacterListButton(interaction);
       return;
     }
 
-    await replyWithError(interaction, "Ce menu n'est plus disponible pour le moment.");
-  },
-
-  async handleButton(interaction) {
     if (interaction.customId.startsWith(CHARACTER_VIEW_BUTTON_PREFIX)) {
       await handleCharacterViewButton(interaction);
       return;
@@ -303,7 +305,7 @@ async function showCharacterCreateModal(interaction) {
   await interaction.showModal(modal);
 }
 
-async function showCharacterDeleteModal(interaction) {
+async function showCharacterDeleteModal(interaction, selectedCharacterId = null) {
   const characters = await getDeletableCharacters(interaction);
 
   if (characters.length === 0) {
@@ -323,35 +325,11 @@ async function showCharacterDeleteModal(interaction) {
             .setPlaceholder("Choisis le personnage à supprimer")
             .setMinValues(1)
             .setMaxValues(1)
-            .setOptions(characters.slice(0, 25).map(createCharacterSelectOption)),
+            .setOptions(characters.slice(0, 25).map((character) => createCharacterSelectOption(character, selectedCharacterId))),
         ),
     );
 
   await interaction.showModal(modal);
-}
-
-async function showCharacterEditSelectMessage(interaction) {
-  const characters = await getEditableCharacters(interaction);
-
-  if (characters.length === 0) {
-    await replyWithError(interaction, "Aucun personnage actif ne peut être modifié.");
-    return;
-  }
-
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`${CHARACTER_EDIT_SELECT_PREFIX}:${interaction.user.id}`)
-    .setPlaceholder("Choisis le personnage à modifier")
-    .setMinValues(1)
-    .setMaxValues(1)
-    .setOptions(characters.slice(0, 25).map(createCharacterSelectOption));
-
-  await sendCharacterResponse(interaction, {
-    content: "Choisis le personnage que tu veux modifier.",
-    components: [
-      new ActionRowBuilder().addComponents(selectMenu),
-    ],
-    flags: MessageFlags.Ephemeral,
-  });
 }
 
 async function showCharacterEditModal(interaction, character, requestId) {
@@ -425,15 +403,17 @@ async function getDeletableCharacters(interaction) {
   return getCharacterService().listCharactersByOwner(interaction.guildId, interaction.user.id);
 }
 
-async function getEditableCharacters(interaction) {
-  return getDeletableCharacters(interaction);
-}
-
-function createCharacterSelectOption(character) {
-  return {
+function createCharacterSelectOption(character, defaultCharacterId = null) {
+  const option = {
     label: truncateText(character.name, 100),
     value: character.id,
   };
+
+  if (character.id === defaultCharacterId) {
+    option.default = true;
+  }
+
+  return option;
 }
 
 function getEditValuesFromModal(interaction, currentCharacter) {
@@ -475,6 +455,36 @@ function cleanupExpiredCharacterEdits() {
   for (const [key, pendingEdit] of pendingCharacterEdits.entries()) {
     if (now - pendingEdit.createdAt > CHARACTER_EDIT_MODAL_TTL_MS) {
       pendingCharacterEdits.delete(key);
+    }
+  }
+}
+
+function createCharacterListContext(interaction, targetUserId, selectedCharacterId) {
+  cleanupExpiredCharacterListContexts();
+
+  characterListContexts.set(interaction.id, {
+    createdAt: Date.now(),
+    guildId: interaction.guildId,
+    selectedCharacterId,
+    targetUserId,
+    userId: interaction.user.id,
+  });
+
+  return interaction.id;
+}
+
+function getCharacterListContext(contextId) {
+  cleanupExpiredCharacterListContexts();
+
+  return characterListContexts.get(contextId) || null;
+}
+
+function cleanupExpiredCharacterListContexts() {
+  const now = Date.now();
+
+  for (const [key, context] of characterListContexts.entries()) {
+    if (now - context.createdAt > CHARACTER_LIST_CONTEXT_TTL_MS) {
+      characterListContexts.delete(key);
     }
   }
 }
@@ -604,39 +614,6 @@ async function handleDeleteModalSubmit(interaction) {
   await deleteCharacterById(interaction, characterId);
 }
 
-async function handleEditSelectMenu(interaction) {
-  cleanupExpiredCharacterEdits();
-
-  const [, , , userId] = interaction.customId.split(":");
-
-  if (userId !== interaction.user.id) {
-    await replyWithError(interaction, "Ce menu ne t'appartient pas.");
-    return;
-  }
-
-  const [characterId] = interaction.values;
-  const character = await getCharacterService().getCharacter(interaction.guildId, characterId);
-
-  if (!character) {
-    await replyWithError(interaction, "Ce personnage est introuvable.");
-    return;
-  }
-
-  if (!canManageCharacter(interaction, character)) {
-    await replyWithError(interaction, "Tu ne peux modifier que tes propres personnages.");
-    return;
-  }
-
-  pendingCharacterEdits.set(interaction.id, {
-    characterId,
-    createdAt: Date.now(),
-    guildId: interaction.guildId,
-    userId: interaction.user.id,
-  });
-
-  await showCharacterEditModal(interaction, character, interaction.id);
-}
-
 async function handleEditModalSubmit(interaction) {
   cleanupExpiredCharacterEdits();
 
@@ -711,12 +688,56 @@ async function handleCharacterViewButton(interaction) {
   await interaction.update(createCharacterViewPayload(character, activeStatistics, contextId, panel));
 }
 
+async function handleCharacterListButton(interaction) {
+  const { contextId, direction } = parseCharacterListButtonId(interaction.customId);
+  const context = getCharacterListContext(contextId);
+
+  if (!context || context.guildId !== interaction.guildId) {
+    await replyWithError(interaction, "Cette liste de personnages n'est plus disponible.");
+    return;
+  }
+
+  if (context.userId !== interaction.user.id) {
+    await replyWithError(interaction, "Cette liste de personnages ne t'appartient pas.");
+    return;
+  }
+
+  const characters = await getCharacterService().listCharactersByOwner(interaction.guildId, context.targetUserId);
+
+  if (characters.length === 0) {
+    await replyWithError(interaction, "Aucun personnage actif n'est disponible.");
+    return;
+  }
+
+  const currentIndex = Math.max(
+    characters.findIndex((character) => character.id === context.selectedCharacterId),
+    0,
+  );
+  const nextIndex = direction === CHARACTER_LIST_DIRECTIONS.next
+    ? Math.min(currentIndex + 1, characters.length - 1)
+    : Math.max(currentIndex - 1, 0);
+  const selectedCharacter = characters[nextIndex];
+
+  context.selectedCharacterId = selectedCharacter.id;
+
+  await interaction.update(createCharacterListPayload(characters, context.targetUserId, contextId, selectedCharacter.id));
+}
+
 function parseCharacterViewButtonId(customId) {
   const [, , contextId, panel] = customId.split(":");
 
   return {
     contextId,
     panel,
+  };
+}
+
+function parseCharacterListButtonId(customId) {
+  const [, , , contextId, direction] = customId.split(":");
+
+  return {
+    contextId,
+    direction,
   };
 }
 
@@ -890,9 +911,17 @@ async function handleList(interaction) {
 
   const characters = await getCharacterService().listCharactersByOwner(interaction.guildId, targetUser.id);
 
-  await sendCharacterResponse(interaction, {
-    embeds: [createCharactersListEmbed(characters, targetUser)],
-  });
+  if (characters.length === 0) {
+    await sendCharacterResponse(interaction, {
+      embeds: [createEmptyCharactersListEmbed(targetUser.id)],
+    });
+    return;
+  }
+
+  const selectedCharacterId = characters[0].id;
+  const contextId = createCharacterListContext(interaction, targetUser.id, selectedCharacterId);
+
+  await sendCharacterResponse(interaction, createCharacterListPayload(characters, targetUser.id, contextId, selectedCharacterId));
 }
 
 async function handleView(interaction) {
@@ -969,35 +998,86 @@ function createSuccessDescription(emoji, title, character, actionLabel, statisti
   return lines.join("\n");
 }
 
-function createCharactersListEmbed(characters, targetUser) {
-  if (characters.length === 0) {
-    return new EmbedBuilder()
-      .setColor(CHARACTER_COLORS.warning)
-      .setDescription([
-        "### \\🎭 **Liste des personnages**",
-        `<@${targetUser.id}> n'a aucun personnage actif sur ce serveur.`,
-      ].join("\n"));
-  }
-
+function createEmptyCharactersListEmbed(targetUserId) {
   return new EmbedBuilder()
-    .setColor(CHARACTER_COLORS.detail)
+    .setColor(CHARACTER_COLORS.warning)
     .setDescription([
       "### \\🎭 **Liste des personnages**",
-      `Retrouvez ci-dessous les personnages de <@${targetUser.id}>.`,
-    ].join("\n"))
-    .addFields(characters.slice(0, 25).map(createCharacterListField));
+      `<@${targetUserId}> n'a aucun personnage actif sur ce serveur.`,
+    ].join("\n"));
 }
 
-function createCharacterListField(character) {
+function createCharacterListPayload(characters, targetUserId, contextId, selectedCharacterId) {
+  const selectedIndex = Math.max(
+    characters.findIndex((character) => character.id === selectedCharacterId),
+    0,
+  );
+  const selectedCharacter = characters[selectedIndex] || characters[0];
+
   return {
-    name: character.name,
-    value: [
-      `**ID** | *\`${character.id}\`*`,
-      `**Proxy** | \`${character.proxy}\``,
-      `**Statut** | **\`${formatCharacterStatus(character)}\`**`,
-    ].join("\n"),
-    inline: true,
+    embeds: [createCharacterListEmbed(selectedCharacter, targetUserId, selectedIndex, characters.length)],
+    components: [
+      createCharacterListPaginationRow(contextId, selectedIndex, characters.length),
+    ],
   };
+}
+
+function createCharacterListEmbed(character, targetUserId, selectedIndex, totalCharacters) {
+  return new EmbedBuilder()
+    .setColor(CHARACTER_COLORS.detail)
+    .setDescription(truncateText([
+      `### \\🎭 **Liste des personnages de <@${targetUserId}>**`,
+      "",
+      `### ⊹˳˚˖ **${character.name}** ˖˚˳⊹`,
+      character.description,
+    ].join("\n"), 4000))
+    .addFields(
+      {
+        name: "ID",
+        value: `\`${character.id}\``,
+        inline: true,
+      },
+      {
+        name: "Proxy",
+        value: `\`${character.proxy}\``,
+        inline: true,
+      },
+      {
+        name: "Statut",
+        value: `**\`${formatCharacterStatus(character)}\`**`,
+        inline: true,
+      },
+    )
+    .setImage(character.avatarUrl)
+    .setFooter({ text: `Personnage ${selectedIndex + 1}/${totalCharacters}` });
+}
+
+function createCharacterListPaginationRow(contextId, selectedIndex, totalCharacters) {
+  return new ActionRowBuilder().addComponents(
+    createCharacterListPaginationButton(
+      contextId,
+      CHARACTER_LIST_DIRECTIONS.previous,
+      "Précédent",
+      "⬅️",
+      selectedIndex <= 0,
+    ),
+    createCharacterListPaginationButton(
+      contextId,
+      CHARACTER_LIST_DIRECTIONS.next,
+      "Suivant",
+      "➡️",
+      selectedIndex >= totalCharacters - 1,
+    ),
+  );
+}
+
+function createCharacterListPaginationButton(contextId, direction, label, emoji, isDisabled) {
+  return new ButtonBuilder()
+    .setCustomId(`${CHARACTER_LIST_BUTTON_PREFIX}:${contextId}:${direction}`)
+    .setEmoji(emoji)
+    .setLabel(label)
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(isDisabled);
 }
 
 function createCharacterViewPayload(character, activeStatistics, contextId, selectedPanel = CHARACTER_VIEW_PANELS.profile) {

@@ -150,6 +150,8 @@ Chaque utilisateur peut avoir jusqu'à 3 personnages actifs par serveur. Les per
 
 `/character delete` ouvre aussi un formulaire Discord avec un menu déroulant pour choisir le personnage à supprimer.
 
+`/character list` affiche une interface interactive sous forme de carousel, avec un personnage par page et des boutons `Précédent` / `Suivant`.
+
 `/character view` affiche par défaut uniquement la description et l'image du personnage. Des boutons permettent ensuite d'afficher les informations, les statistiques ou l'économie sous forme de champs inline.
 
 À la création, le personnage reçoit automatiquement toutes les statistiques actives du serveur avec leur valeur par défaut.
