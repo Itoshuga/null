@@ -120,14 +120,20 @@ function createCharacterListPaginationButton(contextId, direction, label, emoji,
     .setDisabled(isDisabled);
 }
 
-function createCharacterViewPayload(character, activeStatistics, contextId, selectedPanel = CHARACTER_VIEW_PANELS.profile) {
+function createCharacterViewPayload(
+  character,
+  activeStatistics,
+  contextId,
+  selectedPanel = CHARACTER_VIEW_PANELS.profile,
+  economySettings = {},
+) {
   return {
-    embeds: [createCharacterViewEmbed(character, activeStatistics, selectedPanel)],
+    embeds: [createCharacterViewEmbed(character, activeStatistics, selectedPanel, economySettings)],
     components: [createCharacterViewButtonRow(contextId, selectedPanel)],
   };
 }
 
-function createCharacterViewEmbed(character, activeStatistics, selectedPanel) {
+function createCharacterViewEmbed(character, activeStatistics, selectedPanel, economySettings) {
   if (selectedPanel === CHARACTER_VIEW_PANELS.information) {
     return createCharacterInformationEmbed(character);
   }
@@ -137,7 +143,7 @@ function createCharacterViewEmbed(character, activeStatistics, selectedPanel) {
   }
 
   if (selectedPanel === CHARACTER_VIEW_PANELS.economy) {
-    return createCharacterEconomyEmbed(character);
+    return createCharacterEconomyEmbed(character, economySettings);
   }
 
   return createCharacterProfileEmbed(character);
@@ -203,8 +209,8 @@ function createCharacterStatisticsEmbed(character, activeStatistics) {
   return embed.addFields(statisticFields);
 }
 
-function createCharacterEconomyEmbed(character) {
-  const economy = getEconomyService().normalizeEconomy(character.economy);
+function createCharacterEconomyEmbed(character, economySettings) {
+  const economy = getEconomyService().normalizeEconomy(character.economy, economySettings);
 
   return new EmbedBuilder()
     .setColor(CHARACTER_COLORS.detail)
@@ -212,17 +218,17 @@ function createCharacterEconomyEmbed(character) {
     .addFields(
       {
         name: "💵 Sur soi",
-        value: `**\`${formatCurrency(economy.wallet)}\`**`,
+        value: `**\`${formatCurrency(economy.wallet, economySettings)}\`**`,
         inline: true,
       },
       {
         name: "🏦 Banque",
-        value: `**\`${formatCurrency(economy.bank)}\`**`,
+        value: `**\`${formatCurrency(economy.bank, economySettings)}\`**`,
         inline: true,
       },
       {
         name: "💰 Total",
-        value: `**\`${formatCurrency(economy.wallet + economy.bank)}\`**`,
+        value: `**\`${formatCurrency(economy.wallet + economy.bank, economySettings)}\`**`,
         inline: true,
       },
     )

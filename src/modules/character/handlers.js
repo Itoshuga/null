@@ -362,10 +362,19 @@ async function handleView(interaction) {
     return;
   }
 
-  const activeStatistics = await getActiveStatistics(interaction.guildId);
+  const [activeStatistics, economySettings] = await Promise.all([
+    getActiveStatistics(interaction.guildId),
+    getEconomyService().getEconomySettings(interaction.guildId),
+  ]);
   const contextId = createCharacterViewContext(interaction, character);
 
-  await sendCharacterResponse(interaction, createCharacterViewPayload(character, activeStatistics, contextId));
+  await sendCharacterResponse(interaction, createCharacterViewPayload(
+    character,
+    activeStatistics,
+    contextId,
+    undefined,
+    economySettings,
+  ));
 }
 
 async function createAvailableCharacterId(guildId, name) {

@@ -13,6 +13,7 @@ const {
   getCharacterListContext,
   getCharacterService,
   getCharacterViewContext,
+  getEconomyService,
   replyWithError,
 } = require("./shared");
 
@@ -56,9 +57,12 @@ async function handleCharacterViewButton(interaction) {
     return;
   }
 
-  const activeStatistics = await getActiveStatistics(interaction.guildId);
+  const [activeStatistics, economySettings] = await Promise.all([
+    getActiveStatistics(interaction.guildId),
+    getEconomyService().getEconomySettings(interaction.guildId),
+  ]);
 
-  await interaction.update(createCharacterViewPayload(character, activeStatistics, contextId, panel));
+  await interaction.update(createCharacterViewPayload(character, activeStatistics, contextId, panel, economySettings));
 }
 
 async function handleCharacterListButton(interaction) {

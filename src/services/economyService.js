@@ -54,6 +54,26 @@ async function getEconomySettings(guildId) {
   };
 }
 
+async function updateEconomySettings(guildId, settingsData, userId) {
+  const updatedAt = new Date().toISOString();
+
+  await getEconomySettingsDocument(guildId).set({
+    ...settingsData,
+    updatedAt,
+    updatedBy: userId,
+  }, {
+    merge: true,
+  });
+
+  return getEconomySettings(guildId);
+}
+
+async function updateCurrencySymbol(guildId, currencySymbol, userId) {
+  return updateEconomySettings(guildId, {
+    currencySymbol,
+  }, userId);
+}
+
 function createInitialEconomy(settings = DEFAULT_ECONOMY_SETTINGS) {
   return {
     bank: sanitizeAmount(settings.startingBank),
@@ -510,6 +530,8 @@ module.exports = {
   listTransactions,
   normalizeEconomy,
   payment,
+  updateCurrencySymbol,
+  updateEconomySettings,
   withdraw,
   work,
 };

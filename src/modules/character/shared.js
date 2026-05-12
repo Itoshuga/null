@@ -182,8 +182,10 @@ function formatCount(count, singular, plural = `${singular}s`) {
   return `${count} ${count > 1 ? plural : singular}`;
 }
 
-function formatCurrency(amount) {
-  return `${new Intl.NumberFormat("fr-FR").format(amount)} ¥`;
+function formatCurrency(amount, settings = {}) {
+  const currencySymbol = settings.currencySymbol || "¥";
+
+  return `${new Intl.NumberFormat("fr-FR").format(amount)} ${currencySymbol}`;
 }
 
 function normalizeSearchText(value) {

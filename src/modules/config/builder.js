@@ -340,6 +340,16 @@ function createConfigCommandBuilder() {
                 .setMaxLength(200),
             ),
         ),
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName("economy")
+        .setDescription("Configure les paramètres économiques du serveur.")
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("devise")
+            .setDescription("Modifie la devise utilisée par l'économie."),
+        ),
     );
 }
 

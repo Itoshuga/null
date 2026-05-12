@@ -2,6 +2,11 @@ const { MessageFlags, PermissionFlagsBits } = require("discord.js");
 
 const { createConfigCommandBuilder } = require("../../modules/config/builder");
 const { handleConfigAutocomplete } = require("../../modules/config/autocomplete");
+const {
+  CONFIG_COMPONENT_PREFIX,
+  handleEconomyConfig,
+  handleEconomyConfigModalSubmit,
+} = require("../../modules/config/economy");
 const { handleItemConfig } = require("../../modules/config/items");
 const { handleMoneyConfig } = require("../../modules/config/money");
 const { handleStatsConfig } = require("../../modules/config/statistics");
@@ -11,7 +16,8 @@ module.exports = {
   name: "config",
   description: "Configure les systèmes roleplay du serveur.",
   category: "Administration",
-  usage: "/config <item|stats|money> <action>",
+  usage: "/config <item|stats|money|economy> <action>",
+  componentPrefix: CONFIG_COMPONENT_PREFIX,
   data: createConfigCommandBuilder(),
   isEnabled: true,
   isDeployed: true,
@@ -33,13 +39,18 @@ module.exports = {
       return;
     }
 
-    await interaction.deferReply({
-      flags: MessageFlags.Ephemeral,
-    });
+    const group = interaction.options.getSubcommandGroup();
+    const subcommand = interaction.options.getSubcommand();
+
+    if (group === "economy" && subcommand === "devise") {
+      await handleEconomyConfig(interaction, subcommand);
+      return;
+    }
 
     try {
-      const group = interaction.options.getSubcommandGroup();
-      const subcommand = interaction.options.getSubcommand();
+      await interaction.deferReply({
+        flags: MessageFlags.Ephemeral,
+      });
 
       if (group === "item") {
         await handleItemConfig(interaction, subcommand);
@@ -53,6 +64,11 @@ module.exports = {
 
       if (group === "money") {
         await handleMoneyConfig(interaction, subcommand);
+        return;
+      }
+
+      if (group === "economy") {
+        await handleEconomyConfig(interaction, subcommand);
       }
     } catch (error) {
       if (["EconomyError", "ShopError"].includes(error.name)) {
@@ -66,5 +82,9 @@ module.exports = {
 
   async autocomplete(interaction) {
     await handleConfigAutocomplete(interaction);
+  },
+
+  async handleModalSubmit(interaction) {
+    await handleEconomyConfigModalSubmit(interaction);
   },
 };
